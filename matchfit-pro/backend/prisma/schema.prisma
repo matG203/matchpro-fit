@@ -1,0 +1,488 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String
+  friendCode   String   @unique @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile              Profile?
+  avatar               Avatar?
+  wearableConnections  WearableConnection[]
+  healthMetrics        HealthMetric[]
+  dailySummaries       DailySummary[]
+  workouts             Workout[]
+  generatedWorkouts    GeneratedWorkout[]
+  userChallenges       UserChallenge[]
+  xpEvents             XPEvent[]
+  playerCard           PlayerCard?
+  playerStatHistory    PlayerStatHistory[]
+  readinessScores      ReadinessScore[]
+  sentFriendRequests   FriendRequest[]      @relation("SentRequests")
+  receivedFriendRequests FriendRequest[]    @relation("ReceivedRequests")
+  friendshipsA         Friendship[]         @relation("FriendA")
+  friendshipsB         Friendship[]         @relation("FriendB")
+  leaderboardSnapshots LeaderboardSnapshot[]
+  routineChecklists    RoutineChecklist[]
+  routineCompletions   RoutineCompletion[]
+  notifications        Notification[]
+  manualTestResults    ManualTestResult[]
+  supplementReminders  SupplementReminder[]
+  userSettings         UserSettings?
+  goals                Goal[]
+  dietaryPreferences   DietaryPreference[]
+  equipment            UserEquipment[]
+}
+
+model Profile {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  displayName      String
+  dateOfBirth      DateTime?
+  gender           String?
+  heightCm         Float?
+  weightKg         Float?
+  country          String?
+  timezone         String    @default("UTC")
+  units            String    @default("metric")
+  currentLevel     Int       @default(3)
+  footballLevel    String    @default("casual")
+  position         String    @default("Any")
+  fatigueSensitive Boolean   @default(false)
+  sleepDifficulty  Boolean   @default(false)
+  injuryConcerns   String?
+  recoveryPref     String?
+  energyBaseline   Int       @default(3)
+  stressBaseline   Int       @default(3)
+  onboardingDone   Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Avatar {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  skinTone       String   @default("medium")
+  hairStyle      String   @default("short")
+  hairColour     String   @default("brown")
+  facialHair     String   @default("none")
+  kitColour      String   @default("red")
+  kitPattern     String   @default("plain")
+  bootColour     String   @default("black")
+  bodyType       String   @default("athletic")
+  pose           String   @default("ready")
+  headband       Boolean  @default(false)
+  wristTape      Boolean  @default(false)
+  gloves         Boolean  @default(false)
+  captainArmband Boolean  @default(false)
+  glasses        Boolean  @default(false)
+  unlockedItems  Json     @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Goal {
+  id           String    @id @default(cuid())
+  userId       String
+  mainGoal     String    @default("get_match_fit")
+  targetDate   DateTime?
+  matchDate    DateTime?
+  fitnessLevel Int       @default(3)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DietaryPreference {
+  id         String   @id @default(cuid())
+  userId     String
+  preference String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserEquipment {
+  id        String   @id @default(cuid())
+  userId    String
+  equipment String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SupplementReminder {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  timing    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserSettings {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  notificationsEnabled Boolean  @default(true)
+  emailNotifications   Boolean  @default(false)
+  privacyPublic        Boolean  @default(false)
+  workStartTime        String?
+  workEndTime          String?
+  preferredWorkoutDays Json     @default("[]")
+  preferredWorkoutTime String?
+  maxWorkoutDuration   Int      @default(60)
+  minWorkoutDuration   Int      @default(15)
+  preferredRestDays    Json     @default("[]")
+  napRecoveryBlocks    Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WearableConnection {
+  id           String    @id @default(cuid())
+  userId       String
+  provider     String
+  accessToken  String?
+  refreshToken String?
+  tokenExpiry  DateTime?
+  isActive     Boolean   @default(true)
+  lastSync     DateTime?
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+}
+
+model HealthMetric {
+  id         String   @id @default(cuid())
+  userId     String
+  date       DateTime
+  metricType String
+  value      Float
+  unit       String?
+  source     String   @default("manual")
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([userId, metricType])
+}
+
+model DailySummary {
+  id             String   @id @default(cuid())
+  userId         String
+  date           DateTime
+  steps          Int?
+  sleepHours     Float?
+  sleepScore     Int?
+  restingHr      Int?
+  hrv            Float?
+  vo2Max         Float?
+  activeMinutes  Int?
+  caloriesBurned Int?
+  weightKg       Float?
+  energyLevel    Int?
+  stressLevel    Int?
+  fatigueLevel   Int?
+  mood           String?
+  notes          String?
+  isCrashDay     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model WorkoutTemplate {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  category        String
+  difficulty      String
+  durationMins    Int
+  xpReward        Int
+  exercises       Json
+  equipmentNeeded Json     @default("[]")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+}
+
+model GeneratedWorkout {
+  id               String    @id @default(cuid())
+  userId           String
+  title            String
+  description      String?
+  category         String
+  difficulty       String
+  durationMins     Int
+  energyState      String
+  xpReward         Int
+  estimatedFatigue Int       @default(3)
+  warmup           Json
+  mainSection      Json
+  cooldown         Json
+  statsImproved    Json      @default("[]")
+  isCompleted      Boolean   @default(false)
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workout Workout?
+}
+
+model Workout {
+  id                String    @id @default(cuid())
+  userId            String
+  generatedWorkoutId String?  @unique
+  title             String
+  category          String
+  difficulty        String
+  durationMins      Int
+  rpe               Int?
+  notes             String?
+  equipmentUsed     Json      @default("[]")
+  xpAwarded         Int       @default(0)
+  statsImproved     Json      @default("[]")
+  completedAt       DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  generatedWorkout GeneratedWorkout? @relation(fields: [generatedWorkoutId], references: [id])
+
+  @@index([userId, completedAt])
+}
+
+model Challenge {
+  id          String   @id @default(cuid())
+  type        String
+  title       String
+  description String
+  xpReward    Int
+  statReward  Json?
+  difficulty  String   @default("medium")
+  category    String
+  target      Float    @default(1)
+  unit        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  userChallenges UserChallenge[]
+}
+
+model UserChallenge {
+  id          String    @id @default(cuid())
+  userId      String
+  challengeId String
+  progress    Float     @default(0)
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  expiresAt   DateTime
+  xpAwarded   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge Challenge @relation(fields: [challengeId], references: [id])
+
+  @@unique([userId, challengeId, expiresAt])
+  @@index([userId, expiresAt])
+}
+
+model XPEvent {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Int
+  source      String
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model PlayerCard {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  overall    Int      @default(45)
+  tier       String   @default("bronze")
+  pace       Int      @default(45)
+  shooting   Int      @default(45)
+  passing    Int      @default(45)
+  dribbling  Int      @default(45)
+  defending  Int      @default(45)
+  physical   Int      @default(45)
+  stamina    Int      @default(45)
+  recovery   Int      @default(45)
+  composure  Int      @default(45)
+  totalXp    Int      @default(0)
+  xpLevel    Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PlayerStatHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  stat      String
+  oldValue  Int
+  newValue  Int
+  source    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model ReadinessScore {
+  id                    String   @id @default(cuid())
+  userId                String
+  score                 Float
+  fitnessConsistency    Float    @default(0)
+  cardiovascularBase    Float    @default(0)
+  footballConditioning  Float    @default(0)
+  strengthPhysical      Float    @default(0)
+  recoverySleep         Float    @default(0)
+  bodyWeightTrend       Float    @default(0)
+  skillsAgilityTests    Float    @default(0)
+  calculatedAt          DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, calculatedAt])
+}
+
+model FriendRequest {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  sender   User @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+}
+
+model Friendship {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+
+  userA User @relation("FriendA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("FriendB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+}
+
+model LeaderboardSnapshot {
+  id             String   @id @default(cuid())
+  userId         String
+  weekStart      DateTime
+  weeklyXp       Int      @default(0)
+  totalXp        Int      @default(0)
+  readiness      Float    @default(0)
+  overall        Int      @default(45)
+  weeklySteps    Int      @default(0)
+  weeklyWorkouts Int      @default(0)
+  currentStreak  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekStart])
+}
+
+model RoutineChecklist {
+  id        String   @id @default(cuid())
+  userId    String
+  items     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  routineCompletions RoutineCompletion[]
+
+  @@unique([userId])
+}
+
+model RoutineCompletion {
+  id                 String   @id @default(cuid())
+  userId             String
+  routineChecklistId String
+  date               DateTime
+  completedItems     Json     @default("[]")
+  xpAwarded          Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  routineChecklist RoutineChecklist @relation(fields: [routineChecklistId], references: [id])
+
+  @@unique([userId, date])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+model ManualTestResult {
+  id        String   @id @default(cuid())
+  userId    String
+  testType  String
+  value     Float
+  unit      String?
+  notes     String?
+  testedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, testType])
+}
