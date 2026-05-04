@@ -1,4 +1,4 @@
-mport { useEffect, useState } from ''react'';
+import { useEffect, useState } from ''react'';
 import { useNavigate } from ''react-router-dom'';
 import { Dumbbell, Zap, Battery, Plus, ChevronRight, CheckCircle, Circle, Watch } from ''lucide-react'';
 import api from ''../lib/api'';

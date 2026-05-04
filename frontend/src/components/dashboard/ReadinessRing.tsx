@@ -1,4 +1,4 @@
-nterface ReadinessRingProps {
+interface ReadinessRingProps {
   score: number;
   size?: number;
   strokeWidth?: number;

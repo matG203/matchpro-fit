@@ -1,4 +1,4 @@
-mport { create } from ''zustand'';
+import { create } from ''zustand'';
 import api from ''../lib/api'';
 
 interface User {

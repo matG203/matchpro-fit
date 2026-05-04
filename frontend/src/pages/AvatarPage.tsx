@@ -1,4 +1,4 @@
-mport { useEffect, useState } from ''react'';
+import { useEffect, useState } from ''react'';
 import { Lock, Zap, Save } from ''lucide-react'';
 import api from ''../lib/api'';
 import PlayerCard from ''../components/card/PlayerCard'';

@@ -1,4 +1,4 @@
-mport { useEffect, useState } from ''react'';
+import { useEffect, useState } from ''react'';
 import { useNavigate } from ''react-router-dom'';
 import { RefreshCw, Pencil } from ''lucide-react'';
 import api from ''../lib/api'';

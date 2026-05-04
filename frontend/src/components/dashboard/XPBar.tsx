@@ -1,4 +1,4 @@
-nterface XPBarProps {
+interface XPBarProps {
   level: number;
   current: number;
   needed: number;

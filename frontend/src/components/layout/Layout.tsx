@@ -1,4 +1,4 @@
-mport { Outlet, NavLink, useNavigate } from ''react-router-dom'';
+import { Outlet, NavLink, useNavigate } from ''react-router-dom'';
 import {
   LayoutDashboard, CreditCard, User, Dumbbell, Trophy,
   Users, Activity, Heart, ClipboardList, FlaskConical,

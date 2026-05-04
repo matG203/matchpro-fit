@@ -1,4 +1,4 @@
-mport { useState } from ''react'';
+import { useState } from ''react'';
 
 interface CardData {
   overall: number;

@@ -1,4 +1,4 @@
-mport { useState } from ''react'';
+import { useState } from ''react'';
 import { useNavigate } from ''react-router-dom'';
 import { ChevronRight, ChevronLeft, Check } from ''lucide-react'';
 import api from ''../lib/api'';

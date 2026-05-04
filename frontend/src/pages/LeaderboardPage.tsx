@@ -1,4 +1,4 @@
-mport { useEffect, useState } from ''react'';
+import { useEffect, useState } from ''react'';
 import { Trophy, Zap, Star } from ''lucide-react'';
 import api from ''../lib/api'';
 import { useAuthStore } from ''../store/authStore'';

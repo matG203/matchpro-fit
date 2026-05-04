@@ -1,4 +1,4 @@
-mport { useEffect, useState } from ''react'';
+import { useEffect, useState } from ''react'';
 import { CheckCircle, Circle, ClipboardList, Zap } from ''lucide-react'';
 import api from ''../lib/api'';
 

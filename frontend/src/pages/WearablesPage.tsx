@@ -1,4 +1,4 @@
-mport { useEffect, useState } from ''react'';
+import { useEffect, useState } from ''react'';
 import { Watch, RefreshCw, Unlink, Plus, Upload } from ''lucide-react'';
 import api from ''../lib/api'';
 

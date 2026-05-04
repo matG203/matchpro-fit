@@ -1,4 +1,4 @@
-mport { useEffect, useState } from ''react'';
+import { useEffect, useState } from ''react'';
 import { UserPlus, Users, Check, X, Trash2, Copy } from ''lucide-react'';
 import api from ''../lib/api'';
 import { useAuthStore } from ''../store/authStore'';
