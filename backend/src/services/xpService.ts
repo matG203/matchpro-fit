@@ -1,4 +1,4 @@
-﻿import { prisma } from ''../utils/prisma'';
+port { prisma } from ''../utils/prisma'';
 
 export const XP_REWARDS = {
   energy_log: 10,

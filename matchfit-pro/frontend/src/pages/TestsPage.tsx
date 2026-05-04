@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+mport { useEffect, useState } from 'react';
 import { FlaskConical, TrendingUp, Plus, Trophy } from 'lucide-react';
 import api from '../lib/api';
 

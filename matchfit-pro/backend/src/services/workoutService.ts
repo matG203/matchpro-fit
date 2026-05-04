@@ -1,4 +1,4 @@
-import { prisma } from '../utils/prisma';
+mport { prisma } from '../utils/prisma';
 import { awardXp, XP_REWARDS } from './xpService';
 
 export interface WorkoutParams {

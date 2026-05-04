@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+mport { Router, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { ensureDailyChallenges, ensureWeeklyChallenges, completeChallenge } from '../services/challengeService';

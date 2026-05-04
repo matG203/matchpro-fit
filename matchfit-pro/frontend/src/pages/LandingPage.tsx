@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+mport { useNavigate } from 'react-router-dom';
 import { Zap, Trophy, Users, Activity, Shield, Star } from 'lucide-react';
 
 export default function LandingPage() {
