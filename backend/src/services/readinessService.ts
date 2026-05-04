@@ -1,4 +1,4 @@
-port { prisma } from ''../utils/prisma'';
+import { prisma } from ''../utils/prisma'';
 
 export async function calculateReadiness(userId: string): Promise<number> {
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
