@@ -1,26 +1,26 @@
-import { useState } from ''react'';
-import { useNavigate, Link } from ''react-router-dom'';
-import { useAuthStore } from ''../store/authStore'';
-import { Eye, EyeOff, Zap } from ''lucide-react'';
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
+import { Eye, EyeOff, Zap } from 'lucide-react';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('''');
-  const [password, setPassword] = useState('''');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const [error, setError] = useState('''');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuthStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('''');
+    setError('');
     setLoading(true);
     try {
       await login(email, password);
-      navigate(''/dashboard'');
+      navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || ''Login failed'');
+      setError(err.response?.data?.error || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -61,7 +61,7 @@ export default function LoginPage() {
           <label className="label mb-1.5 block">Password</label>
           <div className="relative">
             <input
-              type={showPass ? ''text'' : ''password''}
+              type={showPass ? 'text' : 'password'}
               className="input-field pr-10"
               placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
               value={password}
@@ -78,13 +78,13 @@ export default function LoginPage() {
           </div>
         </div>
         <button type="submit" disabled={loading} className="btn-primary w-full py-3 font-display font-bold uppercase tracking-wide text-base mt-2 disabled:opacity-50">
-          {loading ? ''Signing In...'' : ''Sign In''}
+          {loading ? 'Signing In...' : 'Sign In'}
         </button>
       </form>
 
       <div className="mt-6 text-center">
         <p className="text-gray-500 text-sm">
-          Don''t have an account?{'' ''}
+          Don't have an account?{' '}
           <Link to="/register" className="text-electric-400 hover:text-electric-300 font-medium">
             Sign Up
           </Link>

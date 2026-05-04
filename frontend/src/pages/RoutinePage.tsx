@@ -1,25 +1,25 @@
-import { useEffect, useState } from ''react'';
-import { CheckCircle, Circle, ClipboardList, Zap } from ''lucide-react'';
-import api from ''../lib/api'';
+import { useEffect, useState } from 'react';
+import { CheckCircle, Circle, ClipboardList, Zap } from 'lucide-react';
+import api from '../lib/api';
 
 interface RoutineItem { id: string; label: string; time: string; enabled: boolean; }
 interface RoutineCompletion { completedItems: string[]; xpAwarded: number; }
 
 const TIME_GROUPS = [
-  { key: ''morning'', label: ''ðŸŒ… Morning'', color: ''text-yellow-400'' },
-  { key: ''afternoon'', label: ''â˜€ï¸ Afternoon'', color: ''text-orange-400'' },
-  { key: ''evening'', label: ''ðŸŒ† Evening'', color: ''text-purple-400'' },
-  { key: ''night'', label: ''ðŸŒ™ Night'', color: ''text-blue-400'' },
+  { key: 'morning', label: 'ðŸŒ… Morning', color: 'text-yellow-400' },
+  { key: 'afternoon', label: 'â˜€ï¸ Afternoon', color: 'text-orange-400' },
+  { key: 'evening', label: 'ðŸŒ† Evening', color: 'text-purple-400' },
+  { key: 'night', label: 'ðŸŒ™ Night', color: 'text-blue-400' },
 ];
 
 export default function RoutinePage() {
   const [items, setItems] = useState<RoutineItem[]>([]);
   const [completion, setCompletion] = useState<RoutineCompletion | null>(null);
   const [loading, setLoading] = useState(true);
-  const [completing, setCompleting] = useState('''');
+  const [completing, setCompleting] = useState('');
 
   const load = async () => {
-    const { data } = await api.get(''/routine/today'');
+    const { data } = await api.get('/routine/today');
     setItems((data.checklist?.items as RoutineItem[]) || []);
     setCompletion(data.completion);
     setLoading(false);
@@ -30,16 +30,16 @@ export default function RoutinePage() {
   const toggle = async (itemId: string) => {
     setCompleting(itemId);
     try {
-      await api.post(''/routine/complete'', { itemId });
+      await api.post('/routine/complete', { itemId });
       load();
-    } finally { setCompleting(''''); }
+    } finally { setCompleting(''); }
   };
 
   const completedItems = completion?.completedItems || [];
   const enabledItems = items.filter(i => i.enabled);
   const completedCount = enabledItems.filter(i => completedItems.includes(i.id)).length;
   const percent = enabledItems.length > 0 ? Math.round((completedCount / enabledItems.length) * 100) : 0;
-  const today = new Date().toLocaleDateString(''en-GB'', { weekday: ''long'', day: ''numeric'', month: ''long'' });
+  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
     <div className="px-4 py-4 space-y-5">
@@ -59,7 +59,7 @@ export default function RoutinePage() {
             <circle cx="18" cy="18" r="15" fill="none" stroke="#1a3460" strokeWidth="3" />
             <circle
               cx="18" cy="18" r="15" fill="none"
-              stroke={percent === 100 ? ''#10b981'' : ''#0ea5e9''} strokeWidth="3"
+              stroke={percent === 100 ? '#10b981' : '#0ea5e9'} strokeWidth="3"
               strokeLinecap="round"
               strokeDasharray={`${(percent / 100) * 94} 94`}
             />
@@ -104,15 +104,15 @@ export default function RoutinePage() {
                       disabled={done || isCompleting}
                       className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all text-left ${
                         done
-                          ? ''bg-emerald-500/5 border border-emerald-500/20''
-                          : ''hover:bg-pitch-700 border border-transparent''
+                          ? 'bg-emerald-500/5 border border-emerald-500/20'
+                          : 'hover:bg-pitch-700 border border-transparent'
                       }`}
                     >
                       {done
                         ? <CheckCircle size={22} className="text-emerald-400 flex-shrink-0" />
-                        : <Circle size={22} className={`flex-shrink-0 ${isCompleting ? ''text-electric-400 animate-pulse'' : ''text-gray-600''}`} />
+                        : <Circle size={22} className={`flex-shrink-0 ${isCompleting ? 'text-electric-400 animate-pulse' : 'text-gray-600'}`} />
                       }
-                      <span className={`text-sm font-medium ${done ? ''text-gray-500 line-through'' : ''text-white''}`}>
+                      <span className={`text-sm font-medium ${done ? 'text-gray-500 line-through' : 'text-white'}`}>
                         {item.label}
                       </span>
                     </button>

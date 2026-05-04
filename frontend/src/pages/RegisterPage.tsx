@@ -1,28 +1,28 @@
-import { useState } from ''react'';
-import { useNavigate, Link } from ''react-router-dom'';
-import { useAuthStore } from ''../store/authStore'';
-import { Eye, EyeOff, Zap } from ''lucide-react'';
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
+import { Eye, EyeOff, Zap } from 'lucide-react';
 
 export default function RegisterPage() {
-  const [email, setEmail] = useState('''');
-  const [username, setUsername] = useState('''');
-  const [password, setPassword] = useState('''');
+  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const [error, setError] = useState('''');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuthStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('''');
-    if (password.length < 8) { setError(''Password must be at least 8 characters''); return; }
+    setError('');
+    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
     setLoading(true);
     try {
       await register(email, username, password);
-      navigate(''/onboarding'');
+      navigate('/onboarding');
     } catch (err: any) {
-      setError(err.response?.data?.error || ''Registration failed'');
+      setError(err.response?.data?.error || 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -54,20 +54,20 @@ export default function RegisterPage() {
         </div>
         <div>
           <label className="label mb-1.5 block">Username</label>
-          <input type="text" className="input-field" placeholder="coolplayer99" value={username} onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''''))} required minLength={3} maxLength={30} />
+          <input type="text" className="input-field" placeholder="coolplayer99" value={username} onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))} required minLength={3} maxLength={30} />
           <p className="text-xs text-gray-600 mt-1">Letters, numbers, underscores only</p>
         </div>
         <div>
           <label className="label mb-1.5 block">Password</label>
           <div className="relative">
-            <input type={showPass ? ''text'' : ''password''} className="input-field pr-10" placeholder="Min 8 characters" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
+            <input type={showPass ? 'text' : 'password'} className="input-field pr-10" placeholder="Min 8 characters" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
             <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
               {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
         </div>
         <button type="submit" disabled={loading} className="btn-primary w-full py-3 font-display font-bold uppercase tracking-wide text-base mt-2 disabled:opacity-50">
-          {loading ? ''Creating Account...'' : ''Create Account''}
+          {loading ? 'Creating Account...' : 'Create Account'}
         </button>
       </form>
 
@@ -77,7 +77,7 @@ export default function RegisterPage() {
 
       <div className="mt-4 text-center">
         <p className="text-gray-500 text-sm">
-          Already have an account?{'' ''}
+          Already have an account?{' '}
           <Link to="/login" className="text-electric-400 hover:text-electric-300 font-medium">Sign In</Link>
         </p>
       </div>

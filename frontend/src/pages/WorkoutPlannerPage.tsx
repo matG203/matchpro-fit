@@ -1,29 +1,29 @@
-import { useState } from ''react'';
-import { useNavigate } from ''react-router-dom'';
-import { Dumbbell, Clock, Zap, ChevronRight, CheckCircle } from ''lucide-react'';
-import api from ''../lib/api'';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Dumbbell, Clock, Zap, ChevronRight, CheckCircle } from 'lucide-react';
+import api from '../lib/api';
 
 const DURATIONS = [5, 10, 15, 20, 30, 45, 60];
 const INTENSITIES = [
-  { value: ''recovery'', label: ''Recovery'', desc: ''Very gentle, mobility focus'', color: ''text-blue-400'', bg: ''bg-blue-400/10 border-blue-400/30'' },
-  { value: ''easy'', label: ''Easy'', desc: ''Light effort, building base'', color: ''text-emerald-400'', bg: ''bg-emerald-400/10 border-emerald-400/30'' },
-  { value: ''moderate'', label: ''Moderate'', desc: ''Challenging but sustainable'', color: ''text-yellow-400'', bg: ''bg-yellow-400/10 border-yellow-400/30'' },
-  { value: ''hard'', label: ''Hard'', desc: ''High intensity, max effort'', color: ''text-red-400'', bg: ''bg-red-400/10 border-red-400/30'' },
+  { value: 'recovery', label: 'Recovery', desc: 'Very gentle, mobility focus', color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/30' },
+  { value: 'easy', label: 'Easy', desc: 'Light effort, building base', color: 'text-emerald-400', bg: 'bg-emerald-400/10 border-emerald-400/30' },
+  { value: 'moderate', label: 'Moderate', desc: 'Challenging but sustainable', color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/30' },
+  { value: 'hard', label: 'Hard', desc: 'High intensity, max effort', color: 'text-red-400', bg: 'bg-red-400/10 border-red-400/30' },
 ];
 const GOALS = [
-  { value: ''stamina'', label: ''Stamina'', icon: ''ðŸƒ'' },
-  { value: ''strength'', label: ''Strength'', icon: ''ðŸ’ª'' },
-  { value: ''speed'', label: ''Speed'', icon: ''âš¡'' },
-  { value: ''agility'', label: ''Agility'', icon: ''ðŸƒâ€â™‚ï¸'' },
-  { value: ''mobility'', label: ''Mobility'', icon: ''ðŸ§˜'' },
-  { value: ''recovery'', label: ''Recovery'', icon: ''ðŸ˜´'' },
-  { value: ''match_simulation'', label: ''Match Sim'', icon: ''âš½'' },
-  { value: ''football_skill'', label: ''Football Skills'', icon: ''ðŸŽ¯'' },
+  { value: 'stamina', label: 'Stamina', icon: 'ðŸƒ' },
+  { value: 'strength', label: 'Strength', icon: 'ðŸ’ª' },
+  { value: 'speed', label: 'Speed', icon: 'âš¡' },
+  { value: 'agility', label: 'Agility', icon: 'ðŸƒâ€â™‚ï¸' },
+  { value: 'mobility', label: 'Mobility', icon: 'ðŸ§˜' },
+  { value: 'recovery', label: 'Recovery', icon: 'ðŸ˜´' },
+  { value: 'match_simulation', label: 'Match Sim', icon: 'âš½' },
+  { value: 'football_skill', label: 'Football Skills', icon: 'ðŸŽ¯' },
 ];
 const ENERGY_STATES = [
-  { value: ''green'', label: ''ðŸŸ¢ Green â€“ Feeling great'', desc: ''Full sessions allowed'' },
-  { value: ''yellow'', label: ''ðŸŸ¡ Yellow â€“ Moderate energy'', desc: ''Easy/moderate only'' },
-  { value: ''red'', label: ''ðŸ”´ Red â€“ Low / tired'', desc: ''Recovery only'' },
+  { value: 'green', label: 'ðŸŸ¢ Green â€“ Feeling great', desc: 'Full sessions allowed' },
+  { value: 'yellow', label: 'ðŸŸ¡ Yellow â€“ Moderate energy', desc: 'Easy/moderate only' },
+  { value: 'red', label: 'ðŸ”´ Red â€“ Low / tired', desc: 'Recovery only' },
 ];
 
 interface GeneratedWorkout {
@@ -40,7 +40,7 @@ interface GeneratedWorkout {
   statsImproved: string[];
 }
 
-function ExerciseList({ exercises, title }: { exercises: GeneratedWorkout[''warmup'']; title: string }) {
+function ExerciseList({ exercises, title }: { exercises: GeneratedWorkout['warmup']; title: string }) {
   return (
     <div className="card">
       <h3 className="label mb-3">{title}</h3>
@@ -60,7 +60,7 @@ function ExerciseList({ exercises, title }: { exercises: GeneratedWorkout[''warm
                   ex.rest && `Rest: ${ex.rest}`,
                   ex.intensity && ex.intensity,
                   ex.notes && ex.notes,
-                ].filter(Boolean).join('' Â· '')}
+                ].filter(Boolean).join(' Â· ')}
               </div>
             </div>
           </div>
@@ -72,9 +72,9 @@ function ExerciseList({ exercises, title }: { exercises: GeneratedWorkout[''warm
 
 export default function WorkoutPlannerPage() {
   const [duration, setDuration] = useState(30);
-  const [intensity, setIntensity] = useState(''moderate'');
-  const [goal, setGoal] = useState(''stamina'');
-  const [energyState, setEnergyState] = useState<''green'' | ''yellow'' | ''red''>(''green'');
+  const [intensity, setIntensity] = useState('moderate');
+  const [goal, setGoal] = useState('stamina');
+  const [energyState, setEnergyState] = useState<'green' | 'yellow' | 'red'>('green');
   const [generating, setGenerating] = useState(false);
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
   const [completing, setCompleting] = useState(false);
@@ -83,17 +83,17 @@ export default function WorkoutPlannerPage() {
   const navigate = useNavigate();
 
   // Auto-downgrade intensity on red/yellow
-  const effectiveIntensity = energyState === ''red'' ? ''recovery'' : energyState === ''yellow'' && intensity === ''hard'' ? ''moderate'' : intensity;
+  const effectiveIntensity = energyState === 'red' ? 'recovery' : energyState === 'yellow' && intensity === 'hard' ? 'moderate' : intensity;
 
   const generate = async () => {
     setGenerating(true);
     setWorkout(null);
     setCompleted(false);
     try {
-      const { data } = await api.post(''/workouts/generate'', {
+      const { data } = await api.post('/workouts/generate', {
         durationMins: duration,
         intensity: effectiveIntensity,
-        goal: energyState === ''red'' ? ''recovery'' : goal,
+        goal: energyState === 'red' ? 'recovery' : goal,
         equipment: [],
         energyState,
       });
@@ -107,14 +107,14 @@ export default function WorkoutPlannerPage() {
     if (!workout) return;
     setCompleting(true);
     try {
-      await api.post(''/workouts/complete'', { generatedWorkoutId: workout.id, rpe });
+      await api.post('/workouts/complete', { generatedWorkoutId: workout.id, rpe });
       setCompleted(true);
     } finally {
       setCompleting(false);
     }
   };
 
-  const fatigueLabel = ['''', ''Very Low'', ''Low'', ''Moderate'', ''High'', ''Very High''];
+  const fatigueLabel = ['', 'Very Low', 'Low', 'Moderate', 'High', 'Very High'];
 
   return (
     <div className="px-4 py-4 space-y-5 pb-8">
@@ -129,8 +129,8 @@ export default function WorkoutPlannerPage() {
               {ENERGY_STATES.map(e => (
                 <button
                   key={e.value}
-                  onClick={() => setEnergyState(e.value as ''green'' | ''yellow'' | ''red'')}
-                  className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${energyState === e.value ? ''bg-electric-500/10 border-electric-500'' : ''bg-pitch-700 border-pitch-600''}`}
+                  onClick={() => setEnergyState(e.value as 'green' | 'yellow' | 'red')}
+                  className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${energyState === e.value ? 'bg-electric-500/10 border-electric-500' : 'bg-pitch-700 border-pitch-600'}`}
                 >
                   <div className="font-medium text-sm text-white">{e.label}</div>
                   <div className="text-xs text-gray-500">{e.desc}</div>
@@ -139,14 +139,14 @@ export default function WorkoutPlannerPage() {
             </div>
           </div>
 
-          {energyState !== ''red'' && (
+          {energyState !== 'red' && (
             <>
               {/* Duration */}
               <div className="card">
                 <h3 className="label mb-3">Duration</h3>
                 <div className="flex gap-2 flex-wrap">
                   {DURATIONS.map(d => (
-                    <button key={d} onClick={() => setDuration(d)} className={`px-4 py-2 rounded-lg font-display font-bold text-sm transition-all border ${duration === d ? ''bg-electric-500/20 border-electric-500 text-electric-400'' : ''bg-pitch-700 border-pitch-600 text-gray-300''}`}>
+                    <button key={d} onClick={() => setDuration(d)} className={`px-4 py-2 rounded-lg font-display font-bold text-sm transition-all border ${duration === d ? 'bg-electric-500/20 border-electric-500 text-electric-400' : 'bg-pitch-700 border-pitch-600 text-gray-300'}`}>
                       {d}m
                     </button>
                   ))}
@@ -155,11 +155,11 @@ export default function WorkoutPlannerPage() {
 
               {/* Intensity */}
               <div className="card">
-                <h3 className="label mb-3">Intensity {energyState === ''yellow'' && intensity === ''hard'' ? <span className="text-yellow-400 text-xs">(downgraded to Moderate)</span> : ''''}</h3>
+                <h3 className="label mb-3">Intensity {energyState === 'yellow' && intensity === 'hard' ? <span className="text-yellow-400 text-xs">(downgraded to Moderate)</span> : ''}</h3>
                 <div className="grid grid-cols-2 gap-2">
                   {INTENSITIES.map(i => (
-                    <button key={i.value} onClick={() => setIntensity(i.value)} className={`text-left px-3 py-2.5 rounded-xl border transition-all ${intensity === i.value ? i.bg : ''bg-pitch-700 border-pitch-600''}`}>
-                      <div className={`font-semibold text-sm ${intensity === i.value ? i.color : ''text-gray-300''}`}>{i.label}</div>
+                    <button key={i.value} onClick={() => setIntensity(i.value)} className={`text-left px-3 py-2.5 rounded-xl border transition-all ${intensity === i.value ? i.bg : 'bg-pitch-700 border-pitch-600'}`}>
+                      <div className={`font-semibold text-sm ${intensity === i.value ? i.color : 'text-gray-300'}`}>{i.label}</div>
                       <div className="text-xs text-gray-500 mt-0.5">{i.desc}</div>
                     </button>
                   ))}
@@ -171,9 +171,9 @@ export default function WorkoutPlannerPage() {
                 <h3 className="label mb-3">Session Goal</h3>
                 <div className="grid grid-cols-2 gap-2">
                   {GOALS.map(g => (
-                    <button key={g.value} onClick={() => setGoal(g.value)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${goal === g.value ? ''bg-electric-500/20 border-electric-500'' : ''bg-pitch-700 border-pitch-600''}`}>
+                    <button key={g.value} onClick={() => setGoal(g.value)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${goal === g.value ? 'bg-electric-500/20 border-electric-500' : 'bg-pitch-700 border-pitch-600'}`}>
                       <span className="text-lg">{g.icon}</span>
-                      <span className={`text-sm font-medium ${goal === g.value ? ''text-electric-400'' : ''text-gray-300''}`}>{g.label}</span>
+                      <span className={`text-sm font-medium ${goal === g.value ? 'text-electric-400' : 'text-gray-300'}`}>{g.label}</span>
                     </button>
                   ))}
                 </div>
@@ -183,7 +183,7 @@ export default function WorkoutPlannerPage() {
 
           <button onClick={generate} disabled={generating} className="btn-primary w-full py-4 font-display font-bold uppercase tracking-wide text-base flex items-center justify-center gap-2 disabled:opacity-50">
             <Dumbbell size={20} />
-            {generating ? ''Generating...'' : ''Generate Workout''}
+            {generating ? 'Generating...' : 'Generate Workout'}
           </button>
         </>
       ) : (
@@ -196,7 +196,7 @@ export default function WorkoutPlannerPage() {
               <div className="text-gray-400 mb-4">XP awarded and card stats updated</div>
               <div className="flex gap-3 justify-center">
                 <button onClick={() => { setWorkout(null); setCompleted(false); }} className="btn-secondary">New Workout</button>
-                <button onClick={() => navigate(''/player-card'')} className="btn-primary">View Card</button>
+                <button onClick={() => navigate('/player-card')} className="btn-primary">View Card</button>
               </div>
             </div>
           ) : (
@@ -235,7 +235,7 @@ export default function WorkoutPlannerPage() {
 
               <button onClick={complete} disabled={completing} className="btn-gold w-full py-4 font-display font-bold uppercase tracking-wide text-base flex items-center justify-center gap-2 disabled:opacity-50">
                 <Zap size={20} />
-                {completing ? ''Submitting...'' : `Submit for ${workout.xpReward} XP`}
+                {completing ? 'Submitting...' : `Submit for ${workout.xpReward} XP`}
               </button>
             </>
           )}

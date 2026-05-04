@@ -10,8 +10,8 @@ export default function ReadinessRing({ score, size = 120, strokeWidth = 10, sho
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
 
-  const color = score >= 70 ? ''#10b981'' : score >= 40 ? ''#f59e0b'' : ''#ef4444'';
-  const label = score >= 70 ? ''MATCH READY'' : score >= 40 ? ''BUILDING'' : ''EARLY DAYS'';
+  const color = score >= 70 ? '#10b981' : score >= 40 ? '#f59e0b' : '#ef4444';
+  const label = score >= 70 ? 'MATCH READY' : score >= 40 ? 'BUILDING' : 'EARLY DAYS';
 
   return (
     <div className="flex flex-col items-center">
@@ -37,7 +37,7 @@ export default function ReadinessRing({ score, size = 120, strokeWidth = 10, sho
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={offset}
-            style={{ transition: ''stroke-dashoffset 1s ease-out, stroke 0.3s'' }}
+            style={{ transition: 'stroke-dashoffset 1s ease-out, stroke 0.3s' }}
             filter={`drop-shadow(0 0 6px ${color})`}
           />
         </svg>

@@ -1,5 +1,5 @@
-import { useNavigate } from ''react-router-dom'';
-import { Zap, Trophy, Users, Activity, Shield, Star } from ''lucide-react'';
+import { useNavigate } from 'react-router-dom';
+import { Zap, Trophy, Users, Activity, Shield, Star } from 'lucide-react';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -21,10 +21,10 @@ export default function LandingPage() {
             Level up your football fitness. Track readiness, earn XP, upgrade your player card, and compete with friends.
           </p>
           <div className="flex flex-col gap-3">
-            <button onClick={() => navigate(''/register'')} className="btn-primary w-full text-lg py-3 font-display font-bold uppercase tracking-wide">
+            <button onClick={() => navigate('/register')} className="btn-primary w-full text-lg py-3 font-display font-bold uppercase tracking-wide">
               Get Started Free
             </button>
-            <button onClick={() => navigate(''/login'')} className="btn-secondary w-full">
+            <button onClick={() => navigate('/login')} className="btn-secondary w-full">
               Sign In
             </button>
           </div>
@@ -34,12 +34,12 @@ export default function LandingPage() {
       {/* Features */}
       <div className="px-6 pb-12 space-y-4">
         {[
-          { icon: Activity, title: ''Match Readiness %'', desc: ''Track exactly how ready you are for your next match or fitness goal'' },
-          { icon: Star, title: ''Player Card'', desc: ''Earn XP and upgrade your football-style card from Bronze to Elite'' },
-          { icon: Zap, title: ''XP & Challenges'', desc: ''Daily and weekly challenges to keep you grinding and improving'' },
-          { icon: Trophy, title: ''Leaderboards'', desc: ''Compete with friends on XP, steps, workouts, and overall rating'' },
-          { icon: Shield, title: ''Smart Workouts'', desc: ''AI-generated sessions adapted to your energy level and equipment'' },
-          { icon: Users, title: ''Friends & Social'', desc: ''Add friends, compare player cards, and race up the leaderboard'' },
+          { icon: Activity, title: 'Match Readiness %', desc: 'Track exactly how ready you are for your next match or fitness goal' },
+          { icon: Star, title: 'Player Card', desc: 'Earn XP and upgrade your football-style card from Bronze to Elite' },
+          { icon: Zap, title: 'XP & Challenges', desc: 'Daily and weekly challenges to keep you grinding and improving' },
+          { icon: Trophy, title: 'Leaderboards', desc: 'Compete with friends on XP, steps, workouts, and overall rating' },
+          { icon: Shield, title: 'Smart Workouts', desc: 'AI-generated sessions adapted to your energy level and equipment' },
+          { icon: Users, title: 'Friends & Social', desc: 'Add friends, compare player cards, and race up the leaderboard' },
         ].map(({ icon: Icon, title, desc }) => (
           <div key={title} className="flex items-start gap-4 card">
             <div className="w-10 h-10 rounded-xl bg-electric-500/10 border border-electric-500/20 flex items-center justify-center flex-shrink-0">

@@ -1,7 +1,7 @@
-import { useEffect, useState } from ''react'';
-import { Activity, Zap, Clock, ChevronDown, ChevronUp } from ''lucide-react'';
-import api from ''../lib/api'';
-import { format } from ''date-fns'';
+import { useEffect, useState } from 'react';
+import { Activity, Zap, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import api from '../lib/api';
+import { format } from 'date-fns';
 
 interface Workout {
   id: string; title: string; category: string; difficulty: string;
@@ -10,8 +10,8 @@ interface Workout {
 }
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  recovery: ''text-blue-400'', easy: ''text-emerald-400'',
-  moderate: ''text-yellow-400'', hard: ''text-red-400'',
+  recovery: 'text-blue-400', easy: 'text-emerald-400',
+  moderate: 'text-yellow-400', hard: 'text-red-400',
 };
 
 export default function WorkoutsPage() {
@@ -20,7 +20,7 @@ export default function WorkoutsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get(''/workouts/history'').then(r => { setWorkouts(r.data); setLoading(false); });
+    api.get('/workouts/history').then(r => { setWorkouts(r.data); setLoading(false); });
   }, []);
 
   const totalXp = workouts.reduce((s, w) => s + w.xpAwarded, 0);
@@ -36,9 +36,9 @@ export default function WorkoutsPage() {
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: ''Total Sessions'', value: workouts.length.toString(), icon: ''ðŸ‹ï¸'' },
-          { label: ''Total XP'', value: totalXp.toLocaleString(), icon: ''âš¡'' },
-          { label: ''Total Time'', value: `${Math.round(totalMins / 60)}h`, icon: ''â±ï¸'' },
+          { label: 'Total Sessions', value: workouts.length.toString(), icon: 'ðŸ‹ï¸' },
+          { label: 'Total XP', value: totalXp.toLocaleString(), icon: 'âš¡' },
+          { label: 'Total Time', value: `${Math.round(totalMins / 60)}h`, icon: 'â±ï¸' },
         ].map(s => (
           <div key={s.label} className="card text-center">
             <div className="text-xl mb-1">{s.icon}</div>
@@ -63,7 +63,7 @@ export default function WorkoutsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-white text-sm truncate">{w.title}</div>
                     <div className="flex items-center gap-3 mt-1">
-                      <span className={`text-xs font-medium ${DIFFICULTY_COLORS[w.difficulty] || ''text-gray-400''}`}>
+                      <span className={`text-xs font-medium ${DIFFICULTY_COLORS[w.difficulty] || 'text-gray-400'}`}>
                         {w.difficulty}
                       </span>
                       <span className="flex items-center gap-1 text-xs text-gray-500">
@@ -76,7 +76,7 @@ export default function WorkoutsPage() {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-xs text-gray-600">
-                      {format(new Date(w.completedAt), ''dd MMM'')}
+                      {format(new Date(w.completedAt), 'dd MMM')}
                     </span>
                     {expanded === w.id ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
                   </div>

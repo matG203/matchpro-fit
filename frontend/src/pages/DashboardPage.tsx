@@ -1,10 +1,10 @@
-import { useEffect, useState } from ''react'';
-import { useNavigate } from ''react-router-dom'';
-import { Dumbbell, Zap, Battery, Plus, ChevronRight, CheckCircle, Circle, Watch } from ''lucide-react'';
-import api from ''../lib/api'';
-import { useAuthStore } from ''../store/authStore'';
-import ReadinessRing from ''../components/dashboard/ReadinessRing'';
-import XPBar from ''../components/dashboard/XPBar'';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Dumbbell, Zap, Battery, Plus, ChevronRight, CheckCircle, Circle, Watch } from 'lucide-react';
+import api from '../lib/api';
+import { useAuthStore } from '../store/authStore';
+import ReadinessRing from '../components/dashboard/ReadinessRing';
+import XPBar from '../components/dashboard/XPBar';
 
 interface DashboardData {
   profile: { displayName: string; position: string } | null;
@@ -14,24 +14,24 @@ interface DashboardData {
   xpProgress: { current: number; needed: number; percent: number };
   totalXp: number;
   todaySummary: { steps?: number; sleepHours?: number; restingHr?: number; energyLevel?: number } | null;
-  energyState: ''green'' | ''yellow'' | ''red'' | null;
+  energyState: 'green' | 'yellow' | 'red' | null;
   wearables: { provider: string; lastSync: string | null }[];
   notifications: { id: string; title: string; body: string }[];
   dailyChallenges: { id: string; isCompleted: boolean; challenge: { title: string; xpReward: number } }[];
 }
 
 const TIER_COLORS: Record<string, string> = {
-  bronze: ''#cd7f32'',
-  silver: ''#94a3b8'',
-  common_gold: ''#f59e0b'',
-  rare_gold: ''#fbbf24'',
-  elite: ''#a78bfa'',
+  bronze: '#cd7f32',
+  silver: '#94a3b8',
+  common_gold: '#f59e0b',
+  rare_gold: '#fbbf24',
+  elite: '#a78bfa',
 };
 
 const ENERGY_CONFIG = {
-  green: { label: ''High Energy'', color: ''text-emerald-400'', bg: ''bg-emerald-400/10 border-emerald-400/20'', dot: ''bg-emerald-400'' },
-  yellow: { label: ''Moderate Energy'', color: ''text-yellow-400'', bg: ''bg-yellow-400/10 border-yellow-400/20'', dot: ''bg-yellow-400'' },
-  red: { label: ''Low Energy'', color: ''text-red-400'', bg: ''bg-red-400/10 border-red-400/20'', dot: ''bg-red-400'' },
+  green: { label: 'High Energy', color: 'text-emerald-400', bg: 'bg-emerald-400/10 border-emerald-400/20', dot: 'bg-emerald-400' },
+  yellow: { label: 'Moderate Energy', color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/20', dot: 'bg-yellow-400' },
+  red: { label: 'Low Energy', color: 'text-red-400', bg: 'bg-red-400/10 border-red-400/20', dot: 'bg-red-400' },
 };
 
 export default function DashboardPage() {
@@ -41,11 +41,11 @@ export default function DashboardPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.get(''/dashboard'').then(r => { setData(r.data); setLoading(false); }).catch(() => setLoading(false));
+    api.get('/dashboard').then(r => { setData(r.data); setLoading(false); }).catch(() => setLoading(false));
   }, []);
 
-  const handleLogEnergy = async () => navigate(''/health'');
-  const handleGenerateWorkout = () => navigate(''/workout-planner'');
+  const handleLogEnergy = async () => navigate('/health');
+  const handleGenerateWorkout = () => navigate('/workout-planner');
 
   if (loading) {
     return (
@@ -70,9 +70,9 @@ export default function DashboardPage() {
         </div>
         <div
           className="px-3 py-1.5 rounded-xl border text-xs font-display font-bold uppercase tracking-wider"
-          style={{ color: TIER_COLORS[data?.playerCard?.tier || ''bronze''], borderColor: TIER_COLORS[data?.playerCard?.tier || ''bronze''] + ''40'', backgroundColor: TIER_COLORS[data?.playerCard?.tier || ''bronze''] + ''10'' }}
+          style={{ color: TIER_COLORS[data?.playerCard?.tier || 'bronze'], borderColor: TIER_COLORS[data?.playerCard?.tier || 'bronze'] + '40', backgroundColor: TIER_COLORS[data?.playerCard?.tier || 'bronze'] + '10' }}
         >
-          {(data?.playerCard?.tier || ''bronze'').replace(''_'', '' '')}
+          {(data?.playerCard?.tier || 'bronze').replace('_', ' ')}
         </div>
       </div>
 
@@ -83,12 +83,12 @@ export default function DashboardPage() {
           <div className="text-gray-400 text-xs uppercase tracking-wider mb-1">Card Overall</div>
           <div
             className="font-display font-black text-5xl"
-            style={{ color: TIER_COLORS[data?.playerCard?.tier || ''bronze''] }}
+            style={{ color: TIER_COLORS[data?.playerCard?.tier || 'bronze'] }}
           >
             {data?.playerCard?.overall || 45}
           </div>
           <div className="text-gray-500 text-xs mt-1">OVERALL RATING</div>
-          <button onClick={() => navigate(''/player-card'')} className="mt-2 text-xs text-electric-400 flex items-center gap-1">
+          <button onClick={() => navigate('/player-card')} className="mt-2 text-xs text-electric-400 flex items-center gap-1">
             View Card <ChevronRight size={12} />
           </button>
         </div>
@@ -119,19 +119,19 @@ export default function DashboardPage() {
             <Battery size={20} className="text-gray-400" />
           </div>
           <div className="flex-1 text-left">
-            <div className="text-white font-semibold text-sm">Log Today''s Energy</div>
+            <div className="text-white font-semibold text-sm">Log Today's Energy</div>
             <div className="text-xs text-gray-500">Earn 10 XP + unlock smart workout</div>
           </div>
           <Plus size={16} className="text-gray-500" />
         </button>
       )}
 
-      {/* Today''s stats */}
+      {/* Today's stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: ''Steps'', value: data?.todaySummary?.steps?.toLocaleString() || ''â€”'', icon: ''ðŸ‘Ÿ'' },
-          { label: ''Sleep'', value: data?.todaySummary?.sleepHours ? `${data.todaySummary.sleepHours}h` : ''â€”'', icon: ''ðŸ˜´'' },
-          { label: ''Resting HR'', value: data?.todaySummary?.restingHr ? `${data.todaySummary.restingHr}bpm` : ''â€”'', icon: ''â¤ï¸'' },
+          { label: 'Steps', value: data?.todaySummary?.steps?.toLocaleString() || 'â€”', icon: 'ðŸ‘Ÿ' },
+          { label: 'Sleep', value: data?.todaySummary?.sleepHours ? `${data.todaySummary.sleepHours}h` : 'â€”', icon: 'ðŸ˜´' },
+          { label: 'Resting HR', value: data?.todaySummary?.restingHr ? `${data.todaySummary.restingHr}bpm` : 'â€”', icon: 'â¤ï¸' },
         ].map(({ label, value, icon }) => (
           <div key={label} className="card text-center">
             <div className="text-xl mb-1">{icon}</div>
@@ -150,7 +150,7 @@ export default function DashboardPage() {
           <span className="text-sm font-semibold text-white">Generate Workout</span>
         </button>
         <button
-          onClick={() => api.post(''/workouts/minimum-viable'').then(() => navigate(''/workouts''))}
+          onClick={() => api.post('/workouts/minimum-viable').then(() => navigate('/workouts'))}
           className="card flex flex-col items-center gap-2 py-4 hover:border-yellow-500/50 transition-colors border border-pitch-600"
         >
           <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center">
@@ -164,11 +164,11 @@ export default function DashboardPage() {
       <div className="card">
         <div className="flex items-center justify-between mb-3">
           <span className="font-display font-bold text-white uppercase tracking-wide text-sm">Daily Challenges</span>
-          <button onClick={() => navigate(''/challenges'')} className="text-xs text-electric-400">View All</button>
+          <button onClick={() => navigate('/challenges')} className="text-xs text-electric-400">View All</button>
         </div>
         <div className="space-y-2">
           {(data?.dailyChallenges || []).slice(0, 3).map((uc) => (
-            <div key={uc.id} className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${uc.isCompleted ? ''opacity-50'' : ''hover:bg-pitch-700''}`}>
+            <div key={uc.id} className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${uc.isCompleted ? 'opacity-50' : 'hover:bg-pitch-700'}`}>
               {uc.isCompleted
                 ? <CheckCircle size={18} className="text-emerald-400 flex-shrink-0" />
                 : <Circle size={18} className="text-gray-600 flex-shrink-0" />
@@ -190,7 +190,7 @@ export default function DashboardPage() {
       <div className="card">
         <div className="flex items-center justify-between mb-3">
           <span className="font-display font-bold text-white uppercase tracking-wide text-sm">Connected Devices</span>
-          <button onClick={() => navigate(''/wearables'')} className="text-xs text-electric-400">Manage</button>
+          <button onClick={() => navigate('/wearables')} className="text-xs text-electric-400">Manage</button>
         </div>
         {data?.wearables && data.wearables.length > 0 ? (
           <div className="space-y-2">
@@ -199,13 +199,13 @@ export default function DashboardPage() {
                 <Watch size={16} className="text-electric-400" />
                 <span className="text-sm text-white capitalize">{w.provider}</span>
                 <span className="text-xs text-gray-500 ml-auto">
-                  {w.lastSync ? `Synced ${new Date(w.lastSync).toLocaleDateString()}` : ''Never synced''}
+                  {w.lastSync ? `Synced ${new Date(w.lastSync).toLocaleDateString()}` : 'Never synced'}
                 </span>
               </div>
             ))}
           </div>
         ) : (
-          <button onClick={() => navigate(''/wearables'')} className="w-full text-center text-sm text-gray-500 hover:text-electric-400 transition-colors py-1">
+          <button onClick={() => navigate('/wearables')} className="w-full text-center text-sm text-gray-500 hover:text-electric-400 transition-colors py-1">
             + Connect a wearable for automatic tracking
           </button>
         )}

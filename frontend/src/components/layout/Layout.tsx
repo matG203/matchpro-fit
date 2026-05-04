@@ -1,29 +1,29 @@
-import { Outlet, NavLink, useNavigate } from ''react-router-dom'';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, CreditCard, User, Dumbbell, Trophy,
   Users, Activity, Heart, ClipboardList, FlaskConical,
   Settings, Watch, Zap, Menu, X, Bell
-} from ''lucide-react'';
-import { useState } from ''react'';
-import { useAuthStore } from ''../../store/authStore'';
+} from 'lucide-react';
+import { useState } from 'react';
+import { useAuthStore } from '../../store/authStore';
 
 const navItems = [
-  { to: ''/dashboard'', icon: LayoutDashboard, label: ''Home'' },
-  { to: ''/player-card'', icon: CreditCard, label: ''Card'' },
-  { to: ''/workout-planner'', icon: Dumbbell, label: ''Train'' },
-  { to: ''/challenges'', icon: Trophy, label: ''Goals'' },
-  { to: ''/leaderboards'', icon: Zap, label: ''Ranks'' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Home' },
+  { to: '/player-card', icon: CreditCard, label: 'Card' },
+  { to: '/workout-planner', icon: Dumbbell, label: 'Train' },
+  { to: '/challenges', icon: Trophy, label: 'Goals' },
+  { to: '/leaderboards', icon: Zap, label: 'Ranks' },
 ];
 
 const moreItems = [
-  { to: ''/avatar'', icon: User, label: ''Avatar'' },
-  { to: ''/workouts'', icon: Activity, label: ''History'' },
-  { to: ''/health'', icon: Heart, label: ''Health'' },
-  { to: ''/routine'', icon: ClipboardList, label: ''Routine'' },
-  { to: ''/tests'', icon: FlaskConical, label: ''Tests'' },
-  { to: ''/friends'', icon: Users, label: ''Friends'' },
-  { to: ''/wearables'', icon: Watch, label: ''Wearables'' },
-  { to: ''/settings'', icon: Settings, label: ''Settings'' },
+  { to: '/avatar', icon: User, label: 'Avatar' },
+  { to: '/workouts', icon: Activity, label: 'History' },
+  { to: '/health', icon: Heart, label: 'Health' },
+  { to: '/routine', icon: ClipboardList, label: 'Routine' },
+  { to: '/tests', icon: FlaskConical, label: 'Tests' },
+  { to: '/friends', icon: Users, label: 'Friends' },
+  { to: '/wearables', icon: Watch, label: 'Wearables' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export default function Layout() {
@@ -41,7 +41,7 @@ export default function Layout() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigate(''/dashboard'')}
+            onClick={() => navigate('/dashboard')}
             className="relative p-2 rounded-lg bg-pitch-700 text-gray-400 hover:text-white transition-colors"
           >
             <Bell size={18} />
@@ -77,7 +77,7 @@ export default function Layout() {
                   onClick={() => setMenuOpen(false)}
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium ${
-                      isActive ? ''bg-electric-500/20 text-electric-400'' : ''text-gray-300 hover:bg-pitch-700 hover:text-white''
+                      isActive ? 'bg-electric-500/20 text-electric-400' : 'text-gray-300 hover:bg-pitch-700 hover:text-white'
                     }`
                   }
                 >
@@ -87,7 +87,7 @@ export default function Layout() {
               ))}
             </div>
             <button
-              onClick={() => { logout(); navigate(''/''); setMenuOpen(false); }}
+              onClick={() => { logout(); navigate('/'); setMenuOpen(false); }}
               className="mt-4 w-full text-left px-3 py-2.5 rounded-lg text-red-400 hover:bg-red-400/10 transition-colors text-sm font-medium"
             >
               Sign Out
@@ -108,7 +108,7 @@ export default function Layout() {
             key={to}
             to={to}
             className={({ isActive }) =>
-              `nav-item ${isActive ? ''active'' : ''''}`
+              `nav-item ${isActive ? 'active' : ''}`
             }
           >
             <Icon size={20} />
