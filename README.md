@@ -1,4 +1,4 @@
-﻿# MatchFit Pro âš½âš¡
+# MatchFit Pro âš½âš¡
 
 A football fitness gamification app. Track your match readiness, earn XP, upgrade your player card from Bronze to Elite, customise your avatar, and compete with friends on leaderboards.
 
