@@ -218,7 +218,7 @@ export async function completeWorkout(userId: string, generatedWorkoutId: string
         rpe,
         notes,
         xpAwarded: gw.xpReward,
-        statsImproved: gw.statsImproved,
+        statsImproved: gw.statsImproved as any,
         equipmentUsed: [],
       },
     });
