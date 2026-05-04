@@ -1,11 +1,11 @@
-import { Router, Response } from ''express'';
-import { z } from ''zod'';
-import { prisma } from ''../utils/prisma'';
-import { authenticate, AuthRequest } from ''../middleware/auth'';
+import { Router, Response } from 'express';
+import { z } from 'zod';
+import { prisma } from '../utils/prisma';
+import { authenticate, AuthRequest } from '../middleware/auth';
 
 export const settingsRouter = Router();
 
-settingsRouter.get(''/'', authenticate, async (req: AuthRequest, res: Response) => {
+settingsRouter.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   const settings = await prisma.userSettings.findUnique({ where: { userId: req.userId } });
   const supplements = await prisma.supplementReminder.findMany({ where: { userId: req.userId } });
   const equipment = await prisma.userEquipment.findMany({ where: { userId: req.userId } });
@@ -13,7 +13,7 @@ settingsRouter.get(''/'', authenticate, async (req: AuthRequest, res: Response) 
   return res.json({ settings, supplements, equipment: equipment.map((e) => e.equipment), dietary: dietary.map((d) => d.preference) });
 });
 
-settingsRouter.put(''/'', authenticate, async (req: AuthRequest, res: Response) => {
+settingsRouter.put('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const schema = z.object({
       notificationsEnabled: z.boolean().optional(),
@@ -36,7 +36,7 @@ settingsRouter.put(''/'', authenticate, async (req: AuthRequest, res: Response) 
   }
 });
 
-settingsRouter.put(''/equipment'', authenticate, async (req: AuthRequest, res: Response) => {
+settingsRouter.put('/equipment', authenticate, async (req: AuthRequest, res: Response) => {
   const { equipment } = req.body as { equipment: string[] };
   await prisma.userEquipment.deleteMany({ where: { userId: req.userId } });
   if (equipment?.length) {
@@ -45,7 +45,7 @@ settingsRouter.put(''/equipment'', authenticate, async (req: AuthRequest, res: R
   return res.json({ success: true });
 });
 
-settingsRouter.put(''/supplements'', authenticate, async (req: AuthRequest, res: Response) => {
+settingsRouter.put('/supplements', authenticate, async (req: AuthRequest, res: Response) => {
   const { supplements } = req.body as { supplements: Array<{ name: string; timing: string }> };
   await prisma.supplementReminder.deleteMany({ where: { userId: req.userId } });
   if (supplements?.length) {

@@ -1,13 +1,13 @@
-import { Router, Response } from ''express'';
-import { z } from ''zod'';
-import { prisma } from ''../utils/prisma'';
-import { authenticate, AuthRequest } from ''../middleware/auth'';
-import { awardXp } from ''../services/xpService'';
-import { startOfDay } from ''date-fns'';
+import { Router, Response } from 'express';
+import { z } from 'zod';
+import { prisma } from '../utils/prisma';
+import { authenticate, AuthRequest } from '../middleware/auth';
+import { awardXp } from '../services/xpService';
+import { startOfDay } from 'date-fns';
 
 export const routineRouter = Router();
 
-routineRouter.get(''/today'', authenticate, async (req: AuthRequest, res: Response) => {
+routineRouter.get('/today', authenticate, async (req: AuthRequest, res: Response) => {
   const userId = req.userId!;
   const today = startOfDay(new Date());
   const checklist = await prisma.routineChecklist.findUnique({ where: { userId } });
@@ -17,14 +17,14 @@ routineRouter.get(''/today'', authenticate, async (req: AuthRequest, res: Respon
   return res.json({ checklist, completion });
 });
 
-routineRouter.post(''/complete'', authenticate, async (req: AuthRequest, res: Response) => {
+routineRouter.post('/complete', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const schema = z.object({ itemId: z.string() });
     const { itemId } = schema.parse(req.body);
     const userId = req.userId!;
     const today = startOfDay(new Date());
     const checklist = await prisma.routineChecklist.findUnique({ where: { userId } });
-    if (!checklist) return res.status(404).json({ error: ''No routine found'' });
+    if (!checklist) return res.status(404).json({ error: 'No routine found' });
 
     const existing = await prisma.routineCompletion.findUnique({
       where: { userId_date: { userId, date: today } },
@@ -51,7 +51,7 @@ routineRouter.post(''/complete'', authenticate, async (req: AuthRequest, res: Re
     });
 
     if (xpAwarded > 0) {
-      await awardXp(userId, xpAwarded, ''routine_complete'', ''Completed daily routine'');
+      await awardXp(userId, xpAwarded, 'routine_complete', 'Completed daily routine');
     }
 
     return res.json({ completion, isFullyComplete });
@@ -61,7 +61,7 @@ routineRouter.post(''/complete'', authenticate, async (req: AuthRequest, res: Re
   }
 });
 
-routineRouter.put(''/settings'', authenticate, async (req: AuthRequest, res: Response) => {
+routineRouter.put('/settings', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const schema = z.object({ items: z.array(z.object({ id: z.string(), label: z.string(), time: z.string(), enabled: z.boolean() })) });
     const { items } = schema.parse(req.body);

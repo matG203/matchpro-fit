@@ -1,4 +1,4 @@
-import { prisma } from ''../utils/prisma'';
+import { prisma } from '../utils/prisma';
 
 export async function calculateReadiness(userId: string): Promise<number> {
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
@@ -6,9 +6,9 @@ export async function calculateReadiness(userId: string): Promise<number> {
 
   const [workouts, summaries, tests, goal] = await Promise.all([
     prisma.workout.findMany({ where: { userId, completedAt: { gte: thirtyDaysAgo } } }),
-    prisma.dailySummary.findMany({ where: { userId, date: { gte: fourteenDaysAgo } }, orderBy: { date: ''desc'' } }),
-    prisma.manualTestResult.findMany({ where: { userId }, orderBy: { testedAt: ''desc'' } }),
-    prisma.goal.findFirst({ where: { userId, isActive: true }, orderBy: { createdAt: ''desc'' } }),
+    prisma.dailySummary.findMany({ where: { userId, date: { gte: fourteenDaysAgo } }, orderBy: { date: 'desc' } }),
+    prisma.manualTestResult.findMany({ where: { userId }, orderBy: { testedAt: 'desc' } }),
+    prisma.goal.findFirst({ where: { userId, isActive: true }, orderBy: { createdAt: 'desc' } }),
   ]);
 
   // 1. Fitness Consistency (20 pts) - workouts per week
@@ -25,11 +25,11 @@ export async function calculateReadiness(userId: string): Promise<number> {
   const cardiovascularBase = Math.max(0, stepsScore + hrScore);
 
   // 3. Football Conditioning (15 pts)
-  const footballWorkouts = workouts.filter((w) => [''football_skill'', ''match_simulation'', ''agility'', ''speed''].includes(w.category));
+  const footballWorkouts = workouts.filter((w) => ['football_skill', 'match_simulation', 'agility', 'speed'].includes(w.category));
   const footballConditioning = Math.min(15, footballWorkouts.length * 2.5);
 
   // 4. Strength / Physical (15 pts)
-  const strengthWorkouts = workouts.filter((w) => w.category === ''strength'');
+  const strengthWorkouts = workouts.filter((w) => w.category === 'strength');
   const strengthPhysical = Math.min(15, strengthWorkouts.length * 3);
 
   // 5. Recovery / Sleep (15 pts)

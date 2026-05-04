@@ -1,4 +1,4 @@
-import { prisma } from ''../utils/prisma'';
+import { prisma } from '../utils/prisma';
 
 export const XP_REWARDS = {
   energy_log: 10,
@@ -60,7 +60,7 @@ export async function awardXp(userId: string, amount: number, source: string, de
       await tx.notification.create({
         data: {
           userId,
-          type: ''level_up'',
+          type: 'level_up',
           title: `Level Up! ðŸŽ‰`,
           body: `You reached Level ${newLevel}! Keep grinding!`,
         },
@@ -70,11 +70,11 @@ export async function awardXp(userId: string, amount: number, source: string, de
 }
 
 export function getCardTier(overall: number): string {
-  if (overall >= 90) return ''elite'';
-  if (overall >= 85) return ''rare_gold'';
-  if (overall >= 75) return ''common_gold'';
-  if (overall >= 60) return ''silver'';
-  return ''bronze'';
+  if (overall >= 90) return 'elite';
+  if (overall >= 85) return 'rare_gold';
+  if (overall >= 75) return 'common_gold';
+  if (overall >= 60) return 'silver';
+  return 'bronze';
 }
 
 export async function recalculatePlayerCard(userId: string) {
@@ -88,28 +88,28 @@ export async function recalculatePlayerCard(userId: string) {
     prisma.playerCard.findUnique({ where: { userId } }),
     prisma.dailySummary.findMany({
       where: { userId, date: { gte: thirtyDaysAgo } },
-      orderBy: { date: ''desc'' },
+      orderBy: { date: 'desc' },
       take: 30,
     }),
   ]);
 
   if (!card) return;
 
-  const speedWorkouts = workouts.filter((w) => w.category === ''speed'' || w.category === ''agility'');
-  const staminaWorkouts = workouts.filter((w) => w.category === ''stamina'');
-  const strengthWorkouts = workouts.filter((w) => w.category === ''strength'');
-  const footballWorkouts = workouts.filter((w) => w.category === ''football_skill'' || w.category === ''match_simulation'');
-  const recoveryWorkouts = workouts.filter((w) => w.category === ''recovery'');
+  const speedWorkouts = workouts.filter((w) => w.category === 'speed' || w.category === 'agility');
+  const staminaWorkouts = workouts.filter((w) => w.category === 'stamina');
+  const strengthWorkouts = workouts.filter((w) => w.category === 'strength');
+  const footballWorkouts = workouts.filter((w) => w.category === 'football_skill' || w.category === 'match_simulation');
+  const recoveryWorkouts = workouts.filter((w) => w.category === 'recovery');
 
-  const sprintTests = tests.filter((t) => t.testType === ''20m_sprint'');
+  const sprintTests = tests.filter((t) => t.testType === '20m_sprint');
   const avgSleep = summaries.length > 0 ? summaries.reduce((a, b) => a + (b.sleepHours || 7), 0) / summaries.length : 7;
   const avgSteps = summaries.length > 0 ? summaries.reduce((a, b) => a + (b.steps || 0), 0) / summaries.length : 0;
 
   const paceDelta = speedWorkouts.length * 0.3 + (sprintTests.length > 1 ? 1 : 0);
   const staminaDelta = staminaWorkouts.length * 0.4 + (avgSteps > 8000 ? 1 : 0);
   const physicalDelta = strengthWorkouts.length * 0.5;
-  const shootingDelta = footballWorkouts.filter((w) => w.title.toLowerCase().includes(''shoot'')).length * 0.5;
-  const passingDelta = footballWorkouts.filter((w) => w.title.toLowerCase().includes(''pass'')).length * 0.5;
+  const shootingDelta = footballWorkouts.filter((w) => w.title.toLowerCase().includes('shoot')).length * 0.5;
+  const passingDelta = footballWorkouts.filter((w) => w.title.toLowerCase().includes('pass')).length * 0.5;
   const dribblingDelta = speedWorkouts.length * 0.2 + footballWorkouts.length * 0.3;
   const defendingDelta = speedWorkouts.length * 0.2 + strengthWorkouts.length * 0.2;
   const recoveryDelta = recoveryWorkouts.length * 0.4 + (avgSleep >= 7 ? 1 : 0);

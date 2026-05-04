@@ -1,14 +1,14 @@
-import { Router, Response } from ''express'';
-import { prisma } from ''../utils/prisma'';
-import { authenticate, AuthRequest } from ''../middleware/auth'';
-import { xpToLevel, xpProgressInLevel } from ''../services/xpService'';
-import { calculateReadiness } from ''../services/readinessService'';
-import { ensureDailyChallenges } from ''../services/challengeService'';
-import { startOfDay } from ''date-fns'';
+import { Router, Response } from 'express';
+import { prisma } from '../utils/prisma';
+import { authenticate, AuthRequest } from '../middleware/auth';
+import { xpToLevel, xpProgressInLevel } from '../services/xpService';
+import { calculateReadiness } from '../services/readinessService';
+import { ensureDailyChallenges } from '../services/challengeService';
+import { startOfDay } from 'date-fns';
 
 export const dashboardRouter = Router();
 
-dashboardRouter.get(''/'', authenticate, async (req: AuthRequest, res: Response) => {
+dashboardRouter.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   const userId = req.userId!;
   const today = startOfDay(new Date());
 
@@ -17,13 +17,13 @@ dashboardRouter.get(''/'', authenticate, async (req: AuthRequest, res: Response)
     prisma.playerCard.findUnique({ where: { userId } }),
     prisma.dailySummary.findFirst({ where: { userId, date: { gte: today } } }),
     prisma.wearableConnection.findMany({ where: { userId, isActive: true } }),
-    prisma.notification.findMany({ where: { userId, isRead: false }, orderBy: { createdAt: ''desc'' }, take: 5 }),
+    prisma.notification.findMany({ where: { userId, isRead: false }, orderBy: { createdAt: 'desc' }, take: 5 }),
     ensureDailyChallenges(userId),
   ]);
 
   const latestReadiness = await prisma.readinessScore.findFirst({
     where: { userId },
-    orderBy: { calculatedAt: ''desc'' },
+    orderBy: { calculatedAt: 'desc' },
   });
 
   const totalXp = card?.totalXp || 0;
@@ -31,7 +31,7 @@ dashboardRouter.get(''/'', authenticate, async (req: AuthRequest, res: Response)
   const xpProgress = xpProgressInLevel(totalXp);
 
   const energyLevel = todaySummary?.energyLevel || null;
-  const energyState = energyLevel ? (energyLevel >= 4 ? ''green'' : energyLevel >= 2 ? ''yellow'' : ''red'') : null;
+  const energyState = energyLevel ? (energyLevel >= 4 ? 'green' : energyLevel >= 2 ? 'yellow' : 'red') : null;
 
   return res.json({
     profile,

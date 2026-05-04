@@ -1,9 +1,9 @@
-import { Router, Request, Response } from ''express'';
-import bcrypt from ''bcryptjs'';
-import jwt from ''jsonwebtoken'';
-import { z } from ''zod'';
-import { prisma } from ''../utils/prisma'';
-import { authenticate, AuthRequest } from ''../middleware/auth'';
+import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { z } from 'zod';
+import { prisma } from '../utils/prisma';
+import { authenticate, AuthRequest } from '../middleware/auth';
 
 export const authRouter = Router();
 
@@ -18,14 +18,14 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
-authRouter.post(''/register'', async (req: Request, res: Response) => {
+authRouter.post('/register', async (req: Request, res: Response) => {
   try {
     const body = registerSchema.parse(req.body);
     const existing = await prisma.user.findFirst({
       where: { OR: [{ email: body.email }, { username: body.username }] },
     });
     if (existing) {
-      return res.status(409).json({ error: ''Email or username already taken'' });
+      return res.status(409).json({ error: 'Email or username already taken' });
     }
     const passwordHash = await bcrypt.hash(body.password, 12);
     const user = await prisma.user.create({
@@ -36,7 +36,7 @@ authRouter.post(''/register'', async (req: Request, res: Response) => {
         playerCard: {
           create: {
             overall: 45,
-            tier: ''bronze'',
+            tier: 'bronze',
             pace: Math.floor(Math.random() * 5) + 43,
             shooting: Math.floor(Math.random() * 5) + 43,
             passing: Math.floor(Math.random() * 5) + 43,
@@ -51,7 +51,7 @@ authRouter.post(''/register'', async (req: Request, res: Response) => {
         avatar: { create: {} },
       },
     });
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || ''dev-secret'', { expiresIn: ''30d'' });
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'dev-secret', { expiresIn: '30d' });
     return res.status(201).json({ token, userId: user.id, username: user.username });
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors });
@@ -59,14 +59,14 @@ authRouter.post(''/register'', async (req: Request, res: Response) => {
   }
 });
 
-authRouter.post(''/login'', async (req: Request, res: Response) => {
+authRouter.post('/login', async (req: Request, res: Response) => {
   try {
     const body = loginSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email: body.email } });
-    if (!user) return res.status(401).json({ error: ''Invalid credentials'' });
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     const valid = await bcrypt.compare(body.password, user.passwordHash);
-    if (!valid) return res.status(401).json({ error: ''Invalid credentials'' });
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || ''dev-secret'', { expiresIn: ''30d'' });
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'dev-secret', { expiresIn: '30d' });
     return res.json({ token, userId: user.id, username: user.username });
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors });
@@ -74,17 +74,17 @@ authRouter.post(''/login'', async (req: Request, res: Response) => {
   }
 });
 
-authRouter.get(''/me'', authenticate, async (req: AuthRequest, res: Response) => {
+authRouter.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: req.userId },
     include: { profile: true, playerCard: true },
   });
-  if (!user) return res.status(404).json({ error: ''User not found'' });
+  if (!user) return res.status(404).json({ error: 'User not found' });
   const { passwordHash: _pw, ...safeUser } = user;
   return res.json(safeUser);
 });
 
-authRouter.delete(''/account'', authenticate, async (req: AuthRequest, res: Response) => {
+authRouter.delete('/account', authenticate, async (req: AuthRequest, res: Response) => {
   await prisma.user.delete({ where: { id: req.userId } });
-  return res.json({ message: ''Account deleted'' });
+  return res.json({ message: 'Account deleted' });
 });

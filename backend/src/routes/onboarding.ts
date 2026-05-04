@@ -1,7 +1,7 @@
-import { Router, Response } from ''express'';
-import { z } from ''zod'';
-import { prisma } from ''../utils/prisma'';
-import { authenticate, AuthRequest } from ''../middleware/auth'';
+import { Router, Response } from 'express';
+import { z } from 'zod';
+import { prisma } from '../utils/prisma';
+import { authenticate, AuthRequest } from '../middleware/auth';
 
 export const onboardingRouter = Router();
 
@@ -13,7 +13,7 @@ const onboardingSchema = z.object({
   weightKg: z.number().optional(),
   country: z.string().optional(),
   timezone: z.string().optional(),
-  units: z.enum([''metric'', ''imperial'']).default(''metric''),
+  units: z.enum(['metric', 'imperial']).default('metric'),
   mainGoal: z.string(),
   targetDate: z.string().optional(),
   matchDate: z.string().optional(),
@@ -39,7 +39,7 @@ const onboardingSchema = z.object({
   supplements: z.array(z.object({ name: z.string(), timing: z.string() })).default([]),
 });
 
-onboardingRouter.post(''/'', authenticate, async (req: AuthRequest, res: Response) => {
+onboardingRouter.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const data = onboardingSchema.parse(req.body);
     const userId = req.userId!;
@@ -54,7 +54,7 @@ onboardingRouter.post(''/'', authenticate, async (req: AuthRequest, res: Respons
           heightCm: data.heightCm,
           weightKg: data.weightKg,
           country: data.country,
-          timezone: data.timezone || ''UTC'',
+          timezone: data.timezone || 'UTC',
           units: data.units,
           currentLevel: data.fitnessLevel,
           footballLevel: data.footballLevel,
@@ -75,7 +75,7 @@ onboardingRouter.post(''/'', authenticate, async (req: AuthRequest, res: Respons
           heightCm: data.heightCm,
           weightKg: data.weightKg,
           country: data.country,
-          timezone: data.timezone || ''UTC'',
+          timezone: data.timezone || 'UTC',
           units: data.units,
           currentLevel: data.fitnessLevel,
           footballLevel: data.footballLevel,
@@ -148,7 +148,7 @@ onboardingRouter.post(''/'', authenticate, async (req: AuthRequest, res: Respons
 
       // Award onboarding XP
       await tx.xPEvent.create({
-        data: { userId, amount: 100, source: ''onboarding'', description: ''Completed onboarding'' },
+        data: { userId, amount: 100, source: 'onboarding', description: 'Completed onboarding' },
       });
       await tx.playerCard.update({
         where: { userId },
@@ -162,27 +162,27 @@ onboardingRouter.post(''/'', authenticate, async (req: AuthRequest, res: Respons
         create: {
           userId,
           items: [
-            { id: ''wake'', label: ''Wake up'', time: ''morning'', enabled: true },
-            { id: ''water'', label: ''Drink water'', time: ''morning'', enabled: true },
-            { id: ''hygiene'', label: ''Hygiene'', time: ''morning'', enabled: true },
-            { id: ''breakfast'', label: ''Breakfast'', time: ''morning'', enabled: true },
-            { id: ''supplements_am'', label: ''Morning supplements'', time: ''morning'', enabled: true },
-            { id: ''movement'', label: ''Movement / workout'', time: ''afternoon'', enabled: true },
-            { id: ''lunch'', label: ''Lunch'', time: ''afternoon'', enabled: true },
-            { id: ''snack'', label: ''Snack'', time: ''afternoon'', enabled: true },
-            { id: ''training'', label: ''Training session'', time: ''afternoon'', enabled: false },
-            { id: ''recovery'', label: ''Recovery block'', time: ''evening'', enabled: true },
-            { id: ''dinner'', label: ''Dinner'', time: ''evening'', enabled: true },
-            { id: ''wind_down'', label: ''Wind down'', time: ''evening'', enabled: true },
-            { id: ''bedtime_routine'', label: ''Bedtime routine'', time: ''night'', enabled: true },
-            { id: ''supplements_pm'', label: ''Bedtime supplements'', time: ''night'', enabled: true },
-            { id: ''sleep'', label: ''Sleep'', time: ''night'', enabled: true },
+            { id: 'wake', label: 'Wake up', time: 'morning', enabled: true },
+            { id: 'water', label: 'Drink water', time: 'morning', enabled: true },
+            { id: 'hygiene', label: 'Hygiene', time: 'morning', enabled: true },
+            { id: 'breakfast', label: 'Breakfast', time: 'morning', enabled: true },
+            { id: 'supplements_am', label: 'Morning supplements', time: 'morning', enabled: true },
+            { id: 'movement', label: 'Movement / workout', time: 'afternoon', enabled: true },
+            { id: 'lunch', label: 'Lunch', time: 'afternoon', enabled: true },
+            { id: 'snack', label: 'Snack', time: 'afternoon', enabled: true },
+            { id: 'training', label: 'Training session', time: 'afternoon', enabled: false },
+            { id: 'recovery', label: 'Recovery block', time: 'evening', enabled: true },
+            { id: 'dinner', label: 'Dinner', time: 'evening', enabled: true },
+            { id: 'wind_down', label: 'Wind down', time: 'evening', enabled: true },
+            { id: 'bedtime_routine', label: 'Bedtime routine', time: 'night', enabled: true },
+            { id: 'supplements_pm', label: 'Bedtime supplements', time: 'night', enabled: true },
+            { id: 'sleep', label: 'Sleep', time: 'night', enabled: true },
           ],
         },
       });
     });
 
-    return res.json({ success: true, message: ''Onboarding complete'' });
+    return res.json({ success: true, message: 'Onboarding complete' });
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors });
     throw err;
