@@ -1,5 +1,6 @@
 FROM node:22-bookworm-slim
 WORKDIR /app/backend
+RUN apt-get update -y && apt-get install -y openssl
 COPY backend/package*.json ./
 RUN npm install --include=dev
 COPY backend/ .
