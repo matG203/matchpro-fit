@@ -1,8 +1,8 @@
 FROM node:22-alpine
-WORKDIR /app
-COPY . .
+WORKDIR /app/backend
+COPY backend/package*.json ./
 RUN npm install --include=dev
-RUN ls -la && ls prisma/
+COPY backend/ .
 RUN node_modules/.bin/prisma generate
 EXPOSE 3001
 CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node_modules/.bin/ts-node --transpile-only src/index.ts"]
