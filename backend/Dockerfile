@@ -1,9 +1,12 @@
-FROM node:20-bullseye-slim
-RUN apt-get update -y && apt-get install -y openssl
+FROM node:22-bookworm-slim
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY backend/package*.json ./backend/
 WORKDIR /app/backend
-COPY backend/package*.json ./
-RUN npm install --include=dev
+RUN npm install
 COPY backend/ .
-RUN DATABASE_URL="postgresql://placeholder" node_modules/.bin/prisma generate
-EXPOSE 3001
-CMD ["node_modules/.bin/ts-node", "--transpile-only", "src/index.ts"]
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
+RUN npx prisma generate
+RUN npm run build
+EXPOSE 8080
+CMD ["node", "dist/index.js"]

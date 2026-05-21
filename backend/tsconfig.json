@@ -13,6 +13,6 @@
     "declaration": true,
     "sourceMap": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/index.ts", "src/middleware/**/*.ts", "src/utils/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

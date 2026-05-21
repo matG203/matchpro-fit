@@ -1,69 +1,70 @@
 import { create } from 'zustand';
 import api from '../lib/api';
 
-interface User {
+export type MatchUser = {
   id: string;
   email: string;
   username: string;
-  friendCode: string;
-  profile?: {
-    displayName: string;
-    onboardingDone: boolean;
-    position: string;
-    footballLevel: string;
-  };
-  playerCard?: {
-    overall: number;
-    tier: string;
-    totalXp: number;
-    xpLevel: number;
-  };
-}
+  displayName?: string | null;
+  position?: string | null;
+  teamName?: string | null;
+  age?: number | null;
+  height?: number | null;
+  weight?: number | null;
+  xp: number;
+  level: number;
+  tier: string;
+  avatarId?: string | null;
+  matchReadiness: number;
+};
 
-interface AuthState {
-  user: User | null;
+type AuthState = {
   token: string | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  user: MatchUser | null;
+  checking: boolean;
+  onboardingComplete: boolean;
   register: (email: string, username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  hydrate: () => Promise<void>;
+  completeOnboarding: (payload: Record<string, unknown>) => Promise<void>;
   logout: () => void;
-  fetchMe: () => Promise<void>;
-}
+  setUser: (user: MatchUser) => void;
+};
+
+const saveToken = (token: string) => localStorage.setItem('matchfit-token', token);
 
 export const useAuthStore = create<AuthState>((set) => ({
+  token: localStorage.getItem('matchfit-token'),
   user: null,
-  token: localStorage.getItem('token'),
-  loading: false,
-
-  login: async (email, password) => {
-    const { data } = await api.post('/auth/login', { email, password });
-    localStorage.setItem('token', data.token);
-    set({ token: data.token });
-    const me = await api.get('/auth/me');
-    set({ user: me.data });
-  },
-
-  register: async (email, username, password) => {
+  checking: Boolean(localStorage.getItem('matchfit-token')),
+  onboardingComplete: false,
+  async register(email, username, password) {
     const { data } = await api.post('/auth/register', { email, username, password });
-    localStorage.setItem('token', data.token);
-    set({ token: data.token });
-    const me = await api.get('/auth/me');
-    set({ user: me.data });
+    saveToken(data.token);
+    set({ token: data.token, user: data.user, onboardingComplete: false, checking: false });
   },
-
-  logout: () => {
-    localStorage.removeItem('token');
-    set({ user: null, token: null });
+  async login(email, password) {
+    const { data } = await api.post('/auth/login', { email, password });
+    saveToken(data.token);
+    const me = await api.get('/auth/me', { headers: { Authorization: `Bearer ${data.token}` } });
+    set({ token: data.token, user: me.data.user, onboardingComplete: me.data.onboardingComplete, checking: false });
   },
-
-  fetchMe: async () => {
+  async hydrate() {
     try {
-      set({ loading: true });
       const { data } = await api.get('/auth/me');
-      set({ user: data, loading: false });
+      set({ user: data.user, onboardingComplete: data.onboardingComplete, checking: false });
     } catch {
-      localStorage.removeItem('token');
-      set({ user: null, token: null, loading: false });
+      localStorage.removeItem('matchfit-token');
+      set({ token: null, user: null, checking: false, onboardingComplete: false });
     }
   },
+  async completeOnboarding(payload) {
+    const { data } = await api.post('/onboarding', payload);
+    set({ user: data, onboardingComplete: true });
+  },
+  logout() {
+    localStorage.removeItem('matchfit-token');
+    set({ token: null, user: null, onboardingComplete: false, checking: false });
+  },
+  setUser: (user) => set({ user }),
 }));

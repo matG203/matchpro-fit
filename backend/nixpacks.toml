@@ -1,6 +1,0 @@
-﻿[phases.install]
-cmds = ['npm install --include=dev']
-[phases.build]
-cmds = ['npx prisma generate']
-[start]
-cmd = 'npx ts-node --transpile-only src/index.ts'

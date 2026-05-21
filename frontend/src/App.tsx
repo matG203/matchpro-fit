@@ -1,78 +1,70 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuthStore } from './store/authStore';
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import Layout from './components/layout/Layout';
-import LandingPage from './pages/LandingPage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import OnboardingPage from './pages/OnboardingPage';
-import DashboardPage from './pages/DashboardPage';
-import PlayerCardPage from './pages/PlayerCardPage';
+import { useAuthStore } from './store/authStore';
 import AvatarPage from './pages/AvatarPage';
+import ChallengesPage from './pages/ChallengesPage';
+import DashboardPage from './pages/DashboardPage';
+import FriendsPage from './pages/FriendsPage';
+import HealthPage from './pages/HealthPage';
+import LandingPage from './pages/LandingPage';
+import LeaderboardPage from './pages/LeaderboardPage';
+import LoginPage from './pages/LoginPage';
+import OnboardingPage from './pages/OnboardingPage';
+import PlayerCardPage from './pages/PlayerCardPage';
+import RegisterPage from './pages/RegisterPage';
+import RoutinePage from './pages/RoutinePage';
+import SettingsPage from './pages/SettingsPage';
+import TestsPage from './pages/TestsPage';
+import WearablesPage from './pages/WearablesPage';
 import WorkoutPlannerPage from './pages/WorkoutPlannerPage';
 import WorkoutsPage from './pages/WorkoutsPage';
-import ChallengesPage from './pages/ChallengesPage';
-import LeaderboardPage from './pages/LeaderboardPage';
-import FriendsPage from './pages/FriendsPage';
-import WearablesPage from './pages/WearablesPage';
-import HealthPage from './pages/HealthPage';
-import RoutinePage from './pages/RoutinePage';
-import TestsPage from './pages/TestsPage';
-import SettingsPage from './pages/SettingsPage';
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { token, user } = useAuthStore();
+function SessionGate() {
+  const { token, checking, onboardingComplete } = useAuthStore();
+  if (checking) return <div className="splash">MATCHFIT PRO</div>;
   if (!token) return <Navigate to="/login" replace />;
-  if (user && !user.profile?.onboardingDone) return <Navigate to="/onboarding" replace />;
-  return <>{children}</>;
+  if (!onboardingComplete) return <Navigate to="/onboarding" replace />;
+  return <Outlet />;
 }
 
-function OnboardingRoute({ children }: { children: React.ReactNode }) {
-  const { token } = useAuthStore();
+function OnboardingGate() {
+  const { token, checking, onboardingComplete } = useAuthStore();
+  if (checking) return <div className="splash">MATCHFIT PRO</div>;
   if (!token) return <Navigate to="/login" replace />;
-  return <>{children}</>;
+  if (onboardingComplete) return <Navigate to="/dashboard" replace />;
+  return <OnboardingPage />;
 }
 
 export default function App() {
-  const { token, fetchMe, loading } = useAuthStore();
-
-  useEffect(() => {
-    if (token) fetchMe();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-pitch-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl font-display font-black text-electric-400 mb-2 animate-pulse">MATCHFIT PRO</div>
-          <div className="text-gray-400 text-sm">Loading...</div>
-        </div>
-      </div>
-    );
-  }
+  const { token, hydrate } = useAuthStore();
+  useEffect(() => { if (token) hydrate(); }, [token, hydrate]);
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={token ? <Navigate to="/dashboard" /> : <LandingPage />} />
+        <Route path="/" element={token ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path="/onboarding" element={<OnboardingRoute><OnboardingPage /></OnboardingRoute>} />
-        <Route element={<Layout />}>
-          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-          <Route path="/player-card" element={<ProtectedRoute><PlayerCardPage /></ProtectedRoute>} />
-          <Route path="/avatar" element={<ProtectedRoute><AvatarPage /></ProtectedRoute>} />
-          <Route path="/workout-planner" element={<ProtectedRoute><WorkoutPlannerPage /></ProtectedRoute>} />
-          <Route path="/workouts" element={<ProtectedRoute><WorkoutsPage /></ProtectedRoute>} />
-          <Route path="/challenges" element={<ProtectedRoute><ChallengesPage /></ProtectedRoute>} />
-          <Route path="/leaderboards" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
-          <Route path="/friends" element={<ProtectedRoute><FriendsPage /></ProtectedRoute>} />
-          <Route path="/wearables" element={<ProtectedRoute><WearablesPage /></ProtectedRoute>} />
-          <Route path="/health" element={<ProtectedRoute><HealthPage /></ProtectedRoute>} />
-          <Route path="/routine" element={<ProtectedRoute><RoutinePage /></ProtectedRoute>} />
-          <Route path="/tests" element={<ProtectedRoute><TestsPage /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        <Route path="/onboarding" element={<OnboardingGate />} />
+        <Route element={<SessionGate />}>
+          <Route element={<Layout />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/player-card" element={<PlayerCardPage />} />
+            <Route path="/avatar" element={<AvatarPage />} />
+            <Route path="/workout-planner" element={<WorkoutPlannerPage />} />
+            <Route path="/workouts" element={<WorkoutsPage />} />
+            <Route path="/challenges" element={<ChallengesPage />} />
+            <Route path="/leaderboard" element={<LeaderboardPage />} />
+            <Route path="/friends" element={<FriendsPage />} />
+            <Route path="/health" element={<HealthPage />} />
+            <Route path="/routine" element={<RoutinePage />} />
+            <Route path="/wearables" element={<WearablesPage />} />
+            <Route path="/tests" element={<TestsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
         </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

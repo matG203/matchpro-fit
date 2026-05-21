@@ -1,4 +1,9 @@
 node_modules/
+.npm-cache/
+backend/.npm-cache/
+.vercel-local/
+.vercel-xdg/
+.publish-checkout/
 dist/
 .env
 .env.local

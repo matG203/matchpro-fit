@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
+import { ErrorRequestHandler } from 'express';
 
-export const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Internal server error', message: err.message });
+export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+  console.error(error);
+  res.status(500).json({ error: 'MatchFit Pro could not complete that request.' });
 };

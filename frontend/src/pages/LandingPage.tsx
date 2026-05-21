@@ -1,57 +1,27 @@
-import { useNavigate } from 'react-router-dom';
-import { Zap, Trophy, Users, Activity, Shield, Star } from 'lucide-react';
+import { ArrowRight, Dumbbell, Flame, Trophy } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import PlayerCard from '../components/card/PlayerCard';
 
 export default function LandingPage() {
-  const navigate = useNavigate();
-
   return (
-    <div className="min-h-screen bg-pitch-900 flex flex-col">
-      {/* Hero */}
-      <div className="relative overflow-hidden px-6 pt-16 pb-12 flex-1 flex flex-col justify-center">
-        <div className="absolute inset-0 bg-gradient-to-br from-electric-600/10 via-transparent to-purple-600/10" />
-        <div className="relative text-center">
-          <div className="inline-block mb-4 px-3 py-1 bg-electric-500/10 border border-electric-500/30 rounded-full text-electric-400 text-xs font-medium uppercase tracking-wider">
-            Football Fitness Gamification
+    <main className="landing">
+      <div className="landing-grid">
+        <section className="landing-copy">
+          <span className="eyebrow">Football fitness, levelled up</span>
+          <h1>MatchFit Pro</h1>
+          <p>Track the work behind your football, turn training into XP, build a player card, and chase the next tier with your mates.</p>
+          <div className="actions"><Link className="button" to="/register">Create account <ArrowRight size={18} /></Link><Link className="button secondary" to="/login">Sign in</Link></div>
+          <div className="stat-grid" style={{ marginTop: '1.3rem' }}>
+            <div className="stat"><Flame size={18} /><strong>XP</strong><small>Workouts and recovery logs</small></div>
+            <div className="stat"><Trophy size={18} /><strong>Tiers</strong><small>Bronze to Elite</small></div>
+            <div className="stat"><Dumbbell size={18} /><strong>Ready</strong><small>Match readiness scoring</small></div>
           </div>
-          <h1 className="font-display font-black text-6xl tracking-tight text-white mb-2">
-            MATCH<span className="text-electric-400">FIT</span>
-          </h1>
-          <h2 className="font-display font-bold text-3xl text-gray-300 mb-6 tracking-wide">PRO</h2>
-          <p className="text-gray-400 max-w-xs mx-auto mb-8 leading-relaxed">
-            Level up your football fitness. Track readiness, earn XP, upgrade your player card, and compete with friends.
-          </p>
-          <div className="flex flex-col gap-3">
-            <button onClick={() => navigate('/register')} className="btn-primary w-full text-lg py-3 font-display font-bold uppercase tracking-wide">
-              Get Started Free
-            </button>
-            <button onClick={() => navigate('/login')} className="btn-secondary w-full">
-              Sign In
-            </button>
-          </div>
-        </div>
+        </section>
+        <aside className="pitch-visual">
+          <p className="muted">Form rising this week</p>
+          <div className="mini-card"><PlayerCard card={{ overall: 84, pace: 86, shooting: 79, passing: 88, dribbling: 85, defending: 72, physical: 83, user: { username: 'matchfit', tier: 'Gold', avatarId: 'captain', position: 'CM' } }} /></div>
+        </aside>
       </div>
-
-      {/* Features */}
-      <div className="px-6 pb-12 space-y-4">
-        {[
-          { icon: Activity, title: 'Match Readiness %', desc: 'Track exactly how ready you are for your next match or fitness goal' },
-          { icon: Star, title: 'Player Card', desc: 'Earn XP and upgrade your football-style card from Bronze to Elite' },
-          { icon: Zap, title: 'XP & Challenges', desc: 'Daily and weekly challenges to keep you grinding and improving' },
-          { icon: Trophy, title: 'Leaderboards', desc: 'Compete with friends on XP, steps, workouts, and overall rating' },
-          { icon: Shield, title: 'Smart Workouts', desc: 'AI-generated sessions adapted to your energy level and equipment' },
-          { icon: Users, title: 'Friends & Social', desc: 'Add friends, compare player cards, and race up the leaderboard' },
-        ].map(({ icon: Icon, title, desc }) => (
-          <div key={title} className="flex items-start gap-4 card">
-            <div className="w-10 h-10 rounded-xl bg-electric-500/10 border border-electric-500/20 flex items-center justify-center flex-shrink-0">
-              <Icon size={20} className="text-electric-400" />
-            </div>
-            <div>
-              <div className="font-semibold text-white text-sm mb-0.5">{title}</div>
-              <div className="text-gray-400 text-xs leading-relaxed">{desc}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    </main>
   );
 }

@@ -1,110 +1,21 @@
-import { useEffect, useState } from 'react';
-import { UserPlus, Users, Check, X, Trash2, Copy } from 'lucide-react';
-import api from '../lib/api';
+import { FormEvent, useEffect, useState } from 'react';
+import { AvatarMark, Empty, Panel, Tier } from '../components/ui';
+import api, { errorMessage } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 
-interface Friend { id: string; userId: string; username: string; displayName: string; overall: number; tier: string; friendCode: string; }
-interface FriendRequest { id: string; sender: { username: string; profile?: { displayName: string } } }
-
 export default function FriendsPage() {
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [requests, setRequests] = useState<FriendRequest[]>([]);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
-  const [msg, setMsg] = useState('');
-  const { user } = useAuthStore();
-
-  const load = async () => {
-    const [f, r] = await Promise.all([api.get('/friends'), api.get('/friends/requests')]);
-    setFriends(f.data); setRequests(r.data); setLoading(false);
-  };
+  const me = useAuthStore((state) => state.user);
+  const [data, setData] = useState<any>({ friends: [], requests: [], activity: [] });
+  const [message, setMessage] = useState('');
+  const load = () => api.get('/friends').then((response) => setData(response.data));
   useEffect(() => { load(); }, []);
-
-  const sendRequest = async () => {
-    if (!search.trim()) return;
-    setAdding(true); setMsg('');
-    try {
-      await api.post('/friends/request', { usernameOrCode: search.trim() });
-      setMsg('Friend request sent!'); setSearch('');
-    } catch (err: any) { setMsg(err.response?.data?.error || 'Error'); }
-    finally { setAdding(false); }
-  };
-
-  const accept = async (id: string) => { await api.post('/friends/accept', { requestId: id }); load(); };
-  const decline = async (id: string) => { await api.post('/friends/decline', { requestId: id }); load(); };
+  async function request(event: FormEvent) {
+    event.preventDefault();
+    try { await api.post('/friends/request', { username: new FormData(event.target as HTMLFormElement).get('username') }); setMessage('Request sent.'); load(); }
+    catch (error) { setMessage(errorMessage(error)); }
+  }
+  const accept = async (id: string) => { await api.put(`/friends/${id}/accept`); load(); };
   const remove = async (id: string) => { await api.delete(`/friends/${id}`); load(); };
-
-  const TIER_COLORS: Record<string, string> = { bronze: '#cd7f32', silver: '#94a3b8', common_gold: '#f59e0b', rare_gold: '#fbbf24', elite: '#a78bfa' };
-
-  return (
-    <div className="px-4 py-4 space-y-5">
-      <div className="flex items-center gap-3">
-        <Users size={24} className="text-electric-400" />
-        <h1 className="section-title">Friends</h1>
-      </div>
-
-      {/* Your friend code */}
-      <div className="card bg-electric-500/5 border-electric-500/20">
-        <div className="text-xs text-gray-400 mb-1">Your Friend Code</div>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 font-mono text-electric-400 text-sm bg-pitch-800 px-3 py-2 rounded-lg truncate">{user?.friendCode}</code>
-          <button onClick={() => navigator.clipboard.writeText(user?.friendCode || '')} className="btn-secondary p-2"><Copy size={14} /></button>
-        </div>
-        <p className="text-xs text-gray-600 mt-1">Share this with friends to connect</p>
-      </div>
-
-      {/* Add friend */}
-      <div className="card">
-        <h3 className="label mb-3">Add Friend</h3>
-        {msg && <div className={`mb-3 text-sm px-3 py-2 rounded-lg ${msg.includes('sent') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{msg}</div>}
-        <div className="flex gap-2">
-          <input className="input-field flex-1" placeholder="Username or friend code" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendRequest()} />
-          <button onClick={sendRequest} disabled={adding} className="btn-primary px-4"><UserPlus size={18} /></button>
-        </div>
-      </div>
-
-      {/* Pending requests */}
-      {requests.length > 0 && (
-        <div className="card">
-          <h3 className="label mb-3">Pending Requests ({requests.length})</h3>
-          <div className="space-y-2">
-            {requests.map(r => (
-              <div key={r.id} className="flex items-center gap-3">
-                <div className="flex-1">
-                  <div className="text-white font-medium text-sm">{r.sender.profile?.displayName || r.sender.username}</div>
-                  <div className="text-xs text-gray-500">@{r.sender.username}</div>
-                </div>
-                <button onClick={() => accept(r.id)} className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"><Check size={16} /></button>
-                <button onClick={() => decline(r.id)} className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30"><X size={16} /></button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Friends list */}
-      <div>
-        <h3 className="label mb-3">Friends ({friends.length})</h3>
-        {loading ? <div className="text-gray-500 text-sm text-center py-4">Loading...</div>
-          : friends.length === 0 ? <div className="card text-center py-6 text-gray-500 text-sm">No friends yet â€” add someone!</div>
-          : (
-            <div className="space-y-2">
-              {friends.map(f => (
-                <div key={f.id} className="card flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-display font-black text-lg" style={{ backgroundColor: (TIER_COLORS[f.tier] || '#cd7f32') + '20', color: TIER_COLORS[f.tier] || '#cd7f32', border: `2px solid ${TIER_COLORS[f.tier] || '#cd7f32'}40` }}>
-                    {f.overall}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white font-semibold text-sm">{f.displayName}</div>
-                    <div className="text-xs text-gray-500">@{f.username}</div>
-                  </div>
-                  <button onClick={() => remove(f.userId)} className="p-2 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-colors"><Trash2 size={14} /></button>
-                </div>
-              ))}
-            </div>
-          )}
-      </div>
-    </div>
-  );
+  const player = (link: any) => link.userId === me?.id ? link.friend : link.user;
+  return <div className="page"><h1>Friends</h1><div className="grid-2"><Panel title="Find Players"><form className="inline" onSubmit={request}><input name="username" required placeholder="username" /><button>Send request</button></form>{message && <p className={message.includes('sent') ? 'success' : 'error'}>{message}</p>}<h2>Requests</h2>{data.requests.length ? <ul className="list">{data.requests.map((link: any) => <li className="between" key={link.id}><span>{player(link).username}</span>{link.friendId === me?.id ? <button onClick={() => accept(link.id)}>Accept</button> : <button className="secondary" onClick={() => remove(link.id)}>Cancel</button>}</li>)}</ul> : <Empty>No pending requests.</Empty>}</Panel><Panel title="Squad">{data.friends.length ? <ul className="list">{data.friends.map((link: any) => { const friend = player(link); return <li className="between" key={link.id}><span className="inline"><AvatarMark id={friend.avatarId} />{friend.displayName || friend.username}</span><span className="inline"><Tier value={friend.tier} /><button className="secondary" onClick={() => remove(link.id)}>Remove</button></span></li>; })}</ul> : <Empty>Friend leaderboards wake up once a request is accepted.</Empty>}</Panel></div><Panel title="Friends Activity">{data.activity.length ? <ul className="list">{data.activity.map((workout: any) => <li key={workout.id}>{workout.user.username} logged {workout.duration} minutes of {workout.type}.</li>)}</ul> : <Empty>No squad sessions yet.</Empty>}</Panel></div>;
 }
