@@ -33,6 +33,7 @@ const defaultChallenges = [
   { title: '10K Engine', description: 'Log 10,000 steps in a health entry.', type: 'steps', target: 10000, xpReward: 140 },
   { title: 'Recovery Window', description: 'Log eight hours of sleep.', type: 'sleep', target: 8, xpReward: 120 },
   { title: 'Ready For Kickoff', description: 'Reach 75 match readiness.', type: 'readiness', target: 75, xpReward: 220 },
+  { title: 'Testing Day', description: 'Log one fitness test block.', type: 'tests', target: 1, xpReward: 160 },
 ];
 
 type SafeUser = Omit<User, 'passwordHash'>;
@@ -77,6 +78,49 @@ function jsonValue(value: unknown): Prisma.InputJsonValue {
   return (Array.isArray(value) ? value : []) as Prisma.InputJsonValue;
 }
 
+const cardKeys = ['pace', 'shooting', 'passing', 'dribbling', 'defending', 'physical'] as const;
+
+function overallOf(stats: Record<(typeof cardKeys)[number], number>) {
+  return Math.round(cardKeys.reduce((sum, key) => sum + stats[key], 0) / cardKeys.length);
+}
+
+function clampStat(value: number) {
+  return Math.round(clamp(value, 1, 99));
+}
+
+async function progressCard(userId: string, gains: Partial<Record<(typeof cardKeys)[number], number>>, reason: string) {
+  const card = await prisma.playerCard.upsert({ where: { userId }, create: { userId }, update: {} });
+  const stats = Object.fromEntries(cardKeys.map((key) => [key, clampStat(card[key] + (gains[key] || 0))])) as Record<(typeof cardKeys)[number], number>;
+  const next = await prisma.playerCard.update({ where: { userId }, data: { ...stats, overall: overallOf(stats) } });
+  const boosts = Object.entries(gains).filter(([, value]) => value).map(([key, value]) => `${key} +${value}`).join(', ');
+  if (boosts) await prisma.notification.create({ data: { userId, type: 'card', message: `${reason} improved your card: ${boosts}.` } });
+  return next;
+}
+
+function workoutGains(type: string, duration: number, intensity: string) {
+  const gain = Math.max(1, Math.min(4, Math.round(duration * intensityFactor(intensity) / 35)));
+  const byType: Record<string, Partial<Record<(typeof cardKeys)[number], number>>> = {
+    running: { pace: gain, physical: gain },
+    cycling: { pace: Math.max(1, gain - 1), physical: gain },
+    swimming: { physical: gain, defending: Math.max(1, gain - 1) },
+    gym: { physical: gain + 1, defending: gain },
+    football: { pace: gain, passing: gain, dribbling: gain, shooting: Math.max(1, gain - 1) },
+    other: { physical: gain },
+  };
+  return byType[type] || byType.other;
+}
+
+function testGains(test: { sprint30m?: number; run5kMinutes?: number; yoyoLevel?: number; plankSeconds?: number; jumpCm?: number }) {
+  return {
+    pace: (test.sprint30m && test.sprint30m <= 5 ? 2 : 1) + (test.run5kMinutes && test.run5kMinutes <= 25 ? 1 : 0),
+    shooting: test.jumpCm && test.jumpCm >= 35 ? 1 : 0,
+    passing: test.yoyoLevel && test.yoyoLevel >= 14 ? 1 : 0,
+    dribbling: test.sprint30m && test.sprint30m <= 5.5 ? 1 : 0,
+    defending: test.plankSeconds && test.plankSeconds >= 90 ? 1 : 0,
+    physical: (test.yoyoLevel ? 1 : 0) + (test.plankSeconds && test.plankSeconds >= 60 ? 1 : 0),
+  };
+}
+
 async function awardXp(userId: string, amount: number, reason: string) {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   const xp = Math.max(0, user.xp + Math.round(amount));
@@ -113,9 +157,10 @@ async function calculateReadiness(userId: string) {
 }
 
 async function ensureChallenges(userId: string) {
-  if ((await prisma.challenge.count({ where: { isActive: true } })) === 0) {
-    await prisma.challenge.createMany({ data: defaultChallenges });
-  }
+  await Promise.all(defaultChallenges.map(async (challenge) => {
+    const exists = await prisma.challenge.findFirst({ where: { title: challenge.title } });
+    if (!exists) await prisma.challenge.create({ data: challenge });
+  }));
   const challenges = await prisma.challenge.findMany({ where: { isActive: true }, orderBy: { createdAt: 'asc' } });
   const assigned = await prisma.userChallenge.findMany({ where: { userId } });
   const assignedIds = new Set(assigned.map((item) => item.challengeId));
@@ -266,6 +311,7 @@ app.post('/api/workout', auth, asyncRoute(async (req, res) => {
   const xpEarned = Math.max(20, Math.round(body.duration * intensityFactor(body.intensity)));
   const workout = await prisma.workout.create({ data: { ...body, userId: authId(req), exercises: jsonValue(body.exercises), xpEarned } });
   await awardXp(authId(req), xpEarned, `${body.type} workout`);
+  await progressCard(authId(req), workoutGains(body.type, body.duration, body.intensity), `${body.type} training`);
   await applyChallengeProgress(authId(req), 'workouts', 1);
   await calculateReadiness(authId(req));
   res.status(201).json(workout);
@@ -288,6 +334,7 @@ app.post('/api/health', auth, asyncRoute(async (req, res) => {
   if (metric.steps) await applyChallengeProgress(authId(req), 'steps', metric.steps, 'max');
   if (metric.sleepHours) await applyChallengeProgress(authId(req), 'sleep', metric.sleepHours, 'max');
   const readiness = await calculateReadiness(authId(req));
+  if (readiness.score >= 70) await progressCard(authId(req), { physical: 1 }, 'recovery consistency');
   await applyChallengeProgress(authId(req), 'readiness', readiness.score, 'max');
   res.status(201).json({ metric, readiness });
 }));
@@ -307,6 +354,29 @@ app.post('/api/challenges/:id/progress', auth, asyncRoute(async (req, res) => {
 }));
 
 app.get('/api/readiness', auth, asyncRoute(async (req, res) => res.json(await calculateReadiness(authId(req)))));
+app.get('/api/tests', auth, asyncRoute(async (req, res) => {
+  res.json(await prisma.fitnessTest.findMany({ where: { userId: authId(req) }, orderBy: { testedAt: 'desc' }, take: 20 }));
+}));
+app.post('/api/tests', auth, asyncRoute(async (req, res) => {
+  const body = z.object({
+    sprint30m: z.coerce.number().positive().max(30).optional(),
+    run5kMinutes: z.coerce.number().positive().max(180).optional(),
+    yoyoLevel: z.coerce.number().positive().max(30).optional(),
+    plankSeconds: z.coerce.number().int().positive().max(3600).optional(),
+    jumpCm: z.coerce.number().positive().max(200).optional(),
+    notes: z.string().trim().max(280).optional(),
+    testedAt: z.coerce.date().optional(),
+  }).parse(req.body);
+  if (!Object.values(body).some((value) => typeof value === 'number')) return res.status(400).json({ error: 'Log at least one test result.' });
+  const xpEarned = 70 + Object.values(body).filter((value) => typeof value === 'number').length * 12;
+  const test = await prisma.fitnessTest.create({ data: { ...body, xpEarned, userId: authId(req) } });
+  const [xp, card] = await Promise.all([
+    awardXp(authId(req), xpEarned, 'fitness tests'),
+    progressCard(authId(req), testGains(body), 'fitness tests'),
+    applyChallengeProgress(authId(req), 'tests', 1),
+  ]);
+  res.status(201).json({ test, xp, card });
+}));
 app.get('/api/dashboard', auth, asyncRoute(async (req, res) => {
   const monday = new Date();
   monday.setUTCHours(0, 0, 0, 0);
@@ -367,7 +437,8 @@ app.put('/api/notifications/:id/read', auth, asyncRoute(async (req, res) => {
 app.get('/api/playerCard', auth, asyncRoute(async (req, res) => {
   const card = await prisma.playerCard.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} });
   const user = await prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { username: true, displayName: true, tier: true, avatarId: true, position: true } });
-  res.json({ ...card, user });
+  const [workouts, tests] = await Promise.all([prisma.workout.count({ where: { userId: authId(req) } }), prisma.fitnessTest.count({ where: { userId: authId(req) } })]);
+  res.json({ ...card, user, progression: { workouts, tests, nextFocus: card.overall < 60 ? 'Build a base with football and running sessions.' : 'Use tests to sharpen card stats.' } });
 }));
 app.put('/api/playerCard', auth, asyncRoute(async (req, res) => {
   const body = z.object({ pace: z.number().int().min(1).max(99), shooting: z.number().int().min(1).max(99), passing: z.number().int().min(1).max(99), dribbling: z.number().int().min(1).max(99), defending: z.number().int().min(1).max(99), physical: z.number().int().min(1).max(99) }).partial().parse(req.body);
@@ -389,7 +460,19 @@ app.get('/api/wearables', auth, asyncRoute(async (req, res) => res.json(await pr
 app.put('/api/wearables', auth, asyncRoute(async (req, res) => {
   const body = z.object({ deviceType: z.string().trim().max(60).optional().nullable(), deviceName: z.string().trim().max(80).optional().nullable(), connected: z.boolean().optional(), dailySteps: z.coerce.number().int().min(0).optional().nullable(), heartRate: z.coerce.number().int().min(20).max(260).optional().nullable(), sleepHours: z.coerce.number().min(0).max(24).optional().nullable() }).parse(req.body);
   const data = { ...body, lastSync: body.connected ? new Date() : undefined };
-  res.json(await prisma.wearable.upsert({ where: { userId: authId(req) }, create: { userId: authId(req), ...data }, update: data }));
+  const device = await prisma.wearable.upsert({ where: { userId: authId(req) }, create: { userId: authId(req), ...data }, update: data });
+  let readiness;
+  if (device.connected && (device.dailySteps || device.heartRate || device.sleepHours)) {
+    await prisma.healthMetric.create({
+      data: { userId: authId(req), steps: device.dailySteps, heartRate: device.heartRate, sleepHours: device.sleepHours },
+    });
+    await awardXp(authId(req), 20, 'wearable sync');
+    if (device.dailySteps) await applyChallengeProgress(authId(req), 'steps', device.dailySteps, 'max');
+    if (device.sleepHours) await applyChallengeProgress(authId(req), 'sleep', device.sleepHours, 'max');
+    readiness = await calculateReadiness(authId(req));
+    await applyChallengeProgress(authId(req), 'readiness', readiness.score, 'max');
+  }
+  res.json({ device, readiness });
 }));
 
 app.get('/api/settings', auth, asyncRoute(async (req, res) => res.json(await prisma.userSettings.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} }))));

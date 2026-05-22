@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { Activity, Award, CalendarDays, Dumbbell, HeartPulse, Home, LogOut, Medal, Settings, Shirt, Users, Watch, Zap } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { AvatarMark, Tier } from '../ui';
+import api from '../../lib/api';
 import { useAuthStore } from '../../store/authStore';
 
 const links = [
@@ -21,6 +23,9 @@ const links = [
 
 export default function Layout() {
   const { user, logout } = useAuthStore();
+  useEffect(() => {
+    api.get('/settings').then(({ data }) => { document.documentElement.dataset.theme = data.theme || 'dark'; });
+  }, []);
   return (
     <div className="app-shell">
       <aside className="sidebar">

@@ -36,6 +36,7 @@ model User {
   routine        Routine?
   wearable       Wearable?
   settings       UserSettings?
+  fitnessTests   FitnessTest[]
 }
 
 model Workout {
@@ -161,4 +162,19 @@ model UserSettings {
   theme         String   @default("dark")
   units         String   @default("metric")
   updatedAt     DateTime @updatedAt
+}
+
+model FitnessTest {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  sprint30m    Float?
+  run5kMinutes Float?
+  yoyoLevel    Float?
+  plankSeconds Int?
+  jumpCm       Float?
+  notes        String?
+  xpEarned     Int      @default(0)
+  testedAt     DateTime @default(now())
+  createdAt    DateTime @default(now())
 }

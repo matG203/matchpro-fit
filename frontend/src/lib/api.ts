@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const deployedApi = 'https://matchfit-pro-backend-production.up.railway.app/api';
+const deployedApi = 'https://matchpro-fit-production-db0c.up.railway.app/api';
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? deployedApi : 'http://localhost:8080/api'),
 });

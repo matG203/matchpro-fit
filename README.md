@@ -34,7 +34,7 @@ Railway must build from `backend/Dockerfile` with repository root as the Docker 
 Vercel should use `frontend` as the project root and set:
 
 ```text
-VITE_API_URL=https://matchfit-pro-backend-production.up.railway.app/api
+VITE_API_URL=https://matchpro-fit-production-db0c.up.railway.app/api
 ```
 
 `frontend/vercel.json` includes the React Router fallback rewrite.
