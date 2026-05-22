@@ -1,4 +1,5 @@
-import { AvatarMark, Tier } from '../ui';
+import PlayerFigure, { PlayerLoadout } from '../avatar/PlayerFigure';
+import { Tier } from '../ui';
 
 type Card = {
   overall: number;
@@ -8,7 +9,7 @@ type Card = {
   dribbling: number;
   defending: number;
   physical: number;
-  user?: { displayName?: string | null; username: string; tier: string; avatarId?: string | null; position?: string | null };
+  user?: { displayName?: string | null; username: string; tier: string; avatarId?: string | null; position?: string | null; avatarLoadout?: PlayerLoadout };
 };
 
 export default function PlayerCard({ card }: { card: Card }) {
@@ -17,7 +18,7 @@ export default function PlayerCard({ card }: { card: Card }) {
   return (
     <article className={`player-card card-${tier.toLowerCase()}`}>
       <div className="card-top"><strong>{card.overall}</strong><div>{card.user?.position || 'PLAYER'}<Tier value={tier} /></div></div>
-      <AvatarMark id={card.user?.avatarId} />
+      <PlayerFigure loadout={card.user?.avatarLoadout} />
       <h2>{card.user?.displayName || card.user?.username || 'MatchFit Player'}</h2>
       <dl>{stats.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
     </article>

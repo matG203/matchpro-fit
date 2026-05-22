@@ -37,6 +37,7 @@ model User {
   wearable       Wearable?
   settings       UserSettings?
   fitnessTests   FitnessTest[]
+  avatarLoadout  AvatarLoadout?
 }
 
 model Workout {
@@ -177,4 +178,16 @@ model FitnessTest {
   xpEarned     Int      @default(0)
   testedAt     DateTime @default(now())
   createdAt    DateTime @default(now())
+}
+
+model AvatarLoadout {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  skin      String   @default("warm")
+  hair      String   @default("fade")
+  kit       String   @default("academy")
+  accessory String   @default("none")
+  pose      String   @default("ready")
+  updatedAt DateTime @updatedAt
 }

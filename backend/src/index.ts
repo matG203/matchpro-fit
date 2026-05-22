@@ -28,6 +28,34 @@ const avatarCatalog = [
   { id: 'captain', name: 'Captain', xp: 3200, glyph: 'CP' },
   { id: 'elite-ace', name: 'Elite Ace', xp: 5200, glyph: 'EA' },
 ];
+const avatarParts = {
+  skin: [
+    { id: 'warm', name: 'Warm', xp: 0 },
+    { id: 'deep', name: 'Deep', xp: 0 },
+    { id: 'light', name: 'Light', xp: 0 },
+  ],
+  hair: [
+    { id: 'fade', name: 'Fade', xp: 0 },
+    { id: 'curls', name: 'Curls', xp: 400 },
+    { id: 'bun', name: 'Top Bun', xp: 1100 },
+  ],
+  kit: [
+    { id: 'academy', name: 'Academy Blue', xp: 0 },
+    { id: 'night', name: 'Night Match', xp: 700 },
+    { id: 'gold', name: 'Gold Trim', xp: 2200 },
+  ],
+  accessory: [
+    { id: 'none', name: 'No Accessory', xp: 0 },
+    { id: 'tape', name: 'Wrist Tape', xp: 250 },
+    { id: 'captain', name: 'Captain Band', xp: 1500 },
+    { id: 'glow-boots', name: 'Glow Boots', xp: 3600 },
+  ],
+  pose: [
+    { id: 'ready', name: 'Ready', xp: 0 },
+    { id: 'celebrate', name: 'Celebration', xp: 900 },
+    { id: 'strike', name: 'Strike', xp: 2800 },
+  ],
+} as const;
 const defaultChallenges = [
   { title: 'Training Trio', description: 'Complete three workouts.', type: 'workouts', target: 3, xpReward: 180 },
   { title: '10K Engine', description: 'Log 10,000 steps in a health entry.', type: 'steps', target: 10000, xpReward: 140 },
@@ -226,6 +254,7 @@ app.post('/api/auth/register', asyncRoute(async (req, res) => {
       avatarId: avatarCatalog[0].id,
       playerCard: { create: {} },
       settings: { create: {} },
+      avatarLoadout: { create: {} },
     },
     select: selectUser,
   });
@@ -279,14 +308,35 @@ app.post('/api/onboarding', auth, asyncRoute(async (req, res) => {
 
 app.get('/api/avatar', auth, asyncRoute(async (req, res) => {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { xp: true, avatarId: true } });
-  res.json({ equipped: user.avatarId || avatarCatalog[0].id, avatars: avatarCatalog.map((item) => ({ ...item, unlocked: user.xp >= item.xp })) });
+  const loadout = await prisma.avatarLoadout.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} });
+  res.json({
+    equipped: user.avatarId || avatarCatalog[0].id,
+    avatars: avatarCatalog.map((item) => ({ ...item, unlocked: user.xp >= item.xp })),
+    loadout,
+    parts: Object.fromEntries(Object.entries(avatarParts).map(([part, options]) => [part, options.map((item) => ({ ...item, unlocked: user.xp >= item.xp }))])),
+  });
 }));
 app.put('/api/avatar', auth, asyncRoute(async (req, res) => {
-  const { avatarId } = z.object({ avatarId: z.string() }).parse(req.body);
+  const body = z.object({
+    avatarId: z.string().optional(),
+    skin: z.string().optional(),
+    hair: z.string().optional(),
+    kit: z.string().optional(),
+    accessory: z.string().optional(),
+    pose: z.string().optional(),
+  }).parse(req.body);
   const user = await prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { xp: true } });
-  const avatar = avatarCatalog.find((item) => item.id === avatarId);
-  if (!avatar || avatar.xp > user.xp) return res.status(403).json({ error: 'Earn more XP to equip that avatar.' });
-  res.json(await prisma.user.update({ where: { id: authId(req) }, data: { avatarId }, select: selectUser }));
+  if (body.avatarId) {
+    const avatar = avatarCatalog.find((item) => item.id === body.avatarId);
+    if (!avatar || avatar.xp > user.xp) return res.status(403).json({ error: 'Earn more XP to equip that avatar.' });
+    return res.json({ user: await prisma.user.update({ where: { id: authId(req) }, data: { avatarId: body.avatarId }, select: selectUser }) });
+  }
+  const nextLoadout = Object.fromEntries(Object.entries(body).filter(([key]) => key !== 'avatarId'));
+  for (const [part, value] of Object.entries(nextLoadout)) {
+    const option = avatarParts[part as keyof typeof avatarParts]?.find((item) => item.id === value);
+    if (!option || option.xp > user.xp) return res.status(403).json({ error: 'That player option is still locked.' });
+  }
+  res.json({ loadout: await prisma.avatarLoadout.upsert({ where: { userId: authId(req) }, create: { userId: authId(req), ...nextLoadout }, update: nextLoadout }) });
 }));
 
 app.get('/api/xp', auth, asyncRoute(async (req, res) => {
@@ -382,7 +432,7 @@ app.get('/api/dashboard', auth, asyncRoute(async (req, res) => {
   monday.setUTCHours(0, 0, 0, 0);
   monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
   const [user, recentWorkouts, workoutsThisWeek, notifications, readiness, streak] = await Promise.all([
-    prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { ...selectUser, playerCard: true } }),
+    prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { ...selectUser, playerCard: true, avatarLoadout: true } }),
     prisma.workout.findMany({ where: { userId: authId(req) }, orderBy: { completedAt: 'desc' }, take: 5 }),
     prisma.workout.count({ where: { userId: authId(req), completedAt: { gte: monday } } }),
     prisma.notification.findMany({ where: { userId: authId(req) }, orderBy: { createdAt: 'desc' }, take: 6 }),
@@ -437,8 +487,12 @@ app.put('/api/notifications/:id/read', auth, asyncRoute(async (req, res) => {
 app.get('/api/playerCard', auth, asyncRoute(async (req, res) => {
   const card = await prisma.playerCard.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} });
   const user = await prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { username: true, displayName: true, tier: true, avatarId: true, position: true } });
-  const [workouts, tests] = await Promise.all([prisma.workout.count({ where: { userId: authId(req) } }), prisma.fitnessTest.count({ where: { userId: authId(req) } })]);
-  res.json({ ...card, user, progression: { workouts, tests, nextFocus: card.overall < 60 ? 'Build a base with football and running sessions.' : 'Use tests to sharpen card stats.' } });
+  const [workouts, tests, loadout] = await Promise.all([
+    prisma.workout.count({ where: { userId: authId(req) } }),
+    prisma.fitnessTest.count({ where: { userId: authId(req) } }),
+    prisma.avatarLoadout.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} }),
+  ]);
+  res.json({ ...card, user: { ...user, avatarLoadout: loadout }, progression: { workouts, tests, nextFocus: card.overall < 60 ? 'Build a base with football and running sessions.' : 'Use tests to sharpen card stats.' } });
 }));
 app.put('/api/playerCard', auth, asyncRoute(async (req, res) => {
   const body = z.object({ pace: z.number().int().min(1).max(99), shooting: z.number().int().min(1).max(99), passing: z.number().int().min(1).max(99), dribbling: z.number().int().min(1).max(99), defending: z.number().int().min(1).max(99), physical: z.number().int().min(1).max(99) }).partial().parse(req.body);
