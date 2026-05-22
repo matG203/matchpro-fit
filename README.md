@@ -27,17 +27,17 @@ npm run dev
 
 The backend reads `DATABASE_URL`, `JWT_SECRET`, and `PORT`. The frontend reads `VITE_API_URL`; production uses the Railway API URL ending in `/api`.
 
-Fitbit live wearable sync additionally uses these Railway variables:
+Google Health live wearable sync additionally uses these Railway variables:
 
 ```text
-FITBIT_CLIENT_ID=
-FITBIT_CLIENT_SECRET=
-FITBIT_REDIRECT_URI=https://matchpro-fit-production-db0c.up.railway.app/api/wearables/fitbit/callback
+GOOGLE_HEALTH_CLIENT_ID=
+GOOGLE_HEALTH_CLIENT_SECRET=
+GOOGLE_HEALTH_REDIRECT_URI=https://matchpro-fit-production-db0c.up.railway.app/api/wearables/google-health/callback
 FRONTEND_URL=https://matchpro-fit.vercel.app
 BACKEND_URL=https://matchpro-fit-production-db0c.up.railway.app
 ```
 
-The Fitbit developer app redirect URL must exactly match `FITBIT_REDIRECT_URI`.
+The Google Cloud OAuth redirect URL must exactly match `GOOGLE_HEALTH_REDIRECT_URI`.
 
 ## Deployment
 

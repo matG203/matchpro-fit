@@ -159,35 +159,31 @@ function frontendUrl() {
   return (process.env.FRONTEND_URL || 'https://matchpro-fit.vercel.app').replace(/\/$/, '');
 }
 
-function fitbitConfig() {
-  const clientId = process.env.FITBIT_CLIENT_ID;
-  const clientSecret = process.env.FITBIT_CLIENT_SECRET;
-  const redirectUri = process.env.FITBIT_REDIRECT_URI || `${process.env.BACKEND_URL || 'https://matchpro-fit-production-db0c.up.railway.app'}/api/wearables/fitbit/callback`;
+function googleHealthConfig() {
+  const clientId = process.env.GOOGLE_HEALTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_HEALTH_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_HEALTH_REDIRECT_URI || `${process.env.BACKEND_URL || 'https://matchpro-fit-production-db0c.up.railway.app'}/api/wearables/google-health/callback`;
   return { clientId, clientSecret, redirectUri, ready: Boolean(clientId && clientSecret && redirectUri) };
 }
 
-function fitbitAuthorization() {
-  const config = fitbitConfig();
-  return `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`;
-}
-
-async function fitbitToken(params: URLSearchParams) {
-  const response = await fetch('https://api.fitbit.com/oauth2/token', {
+async function googleHealthToken(params: URLSearchParams) {
+  const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
-    headers: { Authorization: fitbitAuthorization(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params,
   });
-  const data = await response.json() as { access_token?: string; refresh_token?: string; expires_in?: number; user_id?: string; errors?: Array<{ message?: string }> };
-  if (!response.ok || !data.access_token) throw new Error(data.errors?.[0]?.message || 'Fitbit token exchange failed.');
+  const data = await response.json() as { access_token?: string; refresh_token?: string; expires_in?: number; error_description?: string; error?: string };
+  if (!response.ok || !data.access_token) throw new Error(data.error_description || data.error || 'Google Health token exchange failed.');
   return data;
 }
 
-async function validFitbitAccessToken(userId: string) {
+async function validGoogleHealthAccessToken(userId: string) {
   const wearable = await prisma.wearable.findUniqueOrThrow({ where: { userId } });
-  if (!wearable.accessToken) throw new Error('Connect Fitbit before syncing.');
+  if (!wearable.accessToken) throw new Error('Connect Google Health before syncing.');
   if (!wearable.tokenExpiresAt || wearable.tokenExpiresAt.getTime() > Date.now() + 60_000) return { wearable, accessToken: wearable.accessToken };
-  if (!wearable.refreshToken) throw new Error('Fitbit needs to be connected again.');
-  const token = await fitbitToken(new URLSearchParams({ grant_type: 'refresh_token', refresh_token: wearable.refreshToken }));
+  if (!wearable.refreshToken) throw new Error('Google Health needs to be connected again.');
+  const config = googleHealthConfig();
+  const token = await googleHealthToken(new URLSearchParams({ client_id: config.clientId!, client_secret: config.clientSecret!, grant_type: 'refresh_token', refresh_token: wearable.refreshToken }));
   const updated = await prisma.wearable.update({
     where: { userId },
     data: {
@@ -199,11 +195,34 @@ async function validFitbitAccessToken(userId: string) {
   return { wearable: updated, accessToken: token.access_token! };
 }
 
-async function fitbitGet<T>(path: string, accessToken: string) {
-  const response = await fetch(`https://api.fitbit.com${path}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+async function googleHealthGet<T>(path: string, accessToken: string) {
+  const response = await fetch(`https://health.googleapis.com${path}`, { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } });
   const data = await response.json() as T;
-  if (!response.ok) throw new Error('Fitbit data sync failed.');
+  if (!response.ok) throw new Error('Google Health data sync failed.');
   return data;
+}
+
+async function googleHealthPost<T>(path: string, accessToken: string, body: unknown) {
+  const response = await fetch(`https://health.googleapis.com${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json() as T;
+  if (!response.ok) throw new Error('Google Health data sync failed.');
+  return data;
+}
+
+function todayCivilRange() {
+  const now = new Date();
+  const date = { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
+  return {
+    range: {
+      start: { date, time: { hours: 0, minutes: 0, seconds: 0, nanos: 0 } },
+      end: { date, time: { hours: 23, minutes: 59, seconds: 59, nanos: 0 } },
+    },
+    windowSizeDays: 1,
+  };
 }
 
 function publicWearable<T extends { accessToken?: string | null; refreshToken?: string | null }>(wearable: T) {
@@ -632,7 +651,7 @@ app.put('/api/routine', auth, asyncRoute(async (req, res) => {
 
 app.get('/api/wearables', auth, asyncRoute(async (req, res) => {
   const device = await prisma.wearable.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} });
-  res.json({ device: publicWearable(device), fitbitReady: fitbitConfig().ready });
+  res.json({ device: publicWearable(device), googleHealthReady: googleHealthConfig().ready });
 }));
 app.put('/api/wearables', auth, asyncRoute(async (req, res) => {
   const body = z.object({ deviceType: z.string().trim().max(60).optional().nullable(), deviceName: z.string().trim().max(80).optional().nullable(), connected: z.boolean().optional(), dailySteps: z.coerce.number().int().min(0).optional().nullable(), heartRate: z.coerce.number().int().min(20).max(260).optional().nullable(), sleepHours: z.coerce.number().min(0).max(24).optional().nullable() }).parse(req.body);
@@ -644,76 +663,95 @@ app.put('/api/wearables', auth, asyncRoute(async (req, res) => {
   }
   res.json({ device: publicWearable(device), readiness });
 }));
-app.get('/api/wearables/fitbit/connect', auth, asyncRoute(async (req, res) => {
-  const config = fitbitConfig();
-  if (!config.ready) return res.status(503).json({ error: 'Fitbit is not configured yet.' });
-  const state = jwt.sign({ userId: authId(req), kind: 'fitbit' }, jwtSecret(), { expiresIn: '10m' });
+app.get('/api/wearables/google-health/connect', auth, asyncRoute(async (req, res) => {
+  const config = googleHealthConfig();
+  if (!config.ready) return res.status(503).json({ error: 'Google Health is not configured yet.' });
+  const state = jwt.sign({ userId: authId(req), kind: 'google-health' }, jwtSecret(), { expiresIn: '10m' });
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: config.clientId!,
     redirect_uri: config.redirectUri,
-    scope: 'activity heartrate sleep profile',
+    scope: [
+      'openid',
+      'https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly',
+      'https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly',
+      'https://www.googleapis.com/auth/googlehealth.sleep.readonly',
+      'https://www.googleapis.com/auth/googlehealth.profile.readonly',
+    ].join(' '),
+    access_type: 'offline',
+    prompt: 'consent',
     state,
   });
-  res.json({ url: `https://www.fitbit.com/oauth2/authorize?${params}` });
+  res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
 }));
-app.get('/api/wearables/fitbit/callback', asyncRoute(async (req, res) => {
+app.get('/api/wearables/google-health/callback', asyncRoute(async (req, res) => {
   const code = z.string().min(1).parse(req.query.code);
   const state = z.string().min(1).parse(req.query.state);
   const payload = jwt.verify(state, jwtSecret()) as { userId?: string; kind?: string };
-  if (!payload.userId || payload.kind !== 'fitbit') return res.status(400).send('Invalid Fitbit connection state.');
-  const config = fitbitConfig();
-  if (!config.ready) return res.status(503).send('Fitbit is not configured.');
-  const token = await fitbitToken(new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: config.redirectUri }));
+  if (!payload.userId || payload.kind !== 'google-health') return res.status(400).send('Invalid Google Health connection state.');
+  const config = googleHealthConfig();
+  if (!config.ready) return res.status(503).send('Google Health is not configured.');
+  const token = await googleHealthToken(new URLSearchParams({ client_id: config.clientId!, client_secret: config.clientSecret!, grant_type: 'authorization_code', code, redirect_uri: config.redirectUri }));
+  let identity: { userId?: string; googleUserId?: string } = {};
+  try {
+    identity = await googleHealthGet<{ userId?: string; googleUserId?: string }>('/v4/users/me/identity', token.access_token!);
+  } catch {
+    identity = {};
+  }
   await prisma.wearable.upsert({
     where: { userId: payload.userId },
     create: {
       userId: payload.userId,
-      provider: 'fitbit',
-      providerUserId: token.user_id,
+      provider: 'google-health',
+      providerUserId: identity.userId || identity.googleUserId || null,
       accessToken: token.access_token,
       refreshToken: token.refresh_token,
       tokenExpiresAt: new Date(Date.now() + Number(token.expires_in || 3600) * 1000),
       connected: true,
-      deviceType: 'Fitbit',
-      deviceName: 'Fitbit account',
+      deviceType: 'Google Health',
+      deviceName: 'Google Health account',
     },
     update: {
-      provider: 'fitbit',
-      providerUserId: token.user_id,
+      provider: 'google-health',
+      providerUserId: identity.userId || identity.googleUserId || null,
       accessToken: token.access_token,
       refreshToken: token.refresh_token,
       tokenExpiresAt: new Date(Date.now() + Number(token.expires_in || 3600) * 1000),
       connected: true,
-      deviceType: 'Fitbit',
-      deviceName: 'Fitbit account',
+      deviceType: 'Google Health',
+      deviceName: 'Google Health account',
     },
   });
-  res.redirect(`${frontendUrl()}/wearables?fitbit=connected`);
+  res.redirect(`${frontendUrl()}/wearables?googleHealth=connected`);
 }));
-app.post('/api/wearables/fitbit/sync', auth, asyncRoute(async (req, res) => {
-  const { wearable, accessToken } = await validFitbitAccessToken(authId(req));
-  const [activity, sleep, heart] = await Promise.all([
-    fitbitGet<{ summary?: { steps?: number } }>('/1/user/-/activities/date/today.json', accessToken),
-    fitbitGet<{ summary?: { totalMinutesAsleep?: number } }>('/1.2/user/-/sleep/date/today.json', accessToken),
-    fitbitGet<{ 'activities-heart'?: Array<{ value?: { restingHeartRate?: number } }> }>('/1/user/-/activities/heart/date/today/1d.json', accessToken),
+app.post('/api/wearables/google-health/sync', auth, asyncRoute(async (req, res) => {
+  const { wearable, accessToken } = await validGoogleHealthAccessToken(authId(req));
+  const body = todayCivilRange();
+  const [steps, sleep, heart] = await Promise.all([
+    googleHealthPost<{ rollupDataPoints?: Array<{ steps?: { countSum?: string } }> }>('/v4/users/me/dataTypes/steps/dataPoints:dailyRollUp', accessToken, body),
+    googleHealthPost<{ sessions?: Array<{ summary?: { minutesAsleep?: string } }> }>('/v4/users/me/dataTypes/sleep/sessions:reconcile', accessToken, { range: body.range }),
+    googleHealthPost<{ rollupDataPoints?: Array<{ heartRate?: { bpmAvg?: number; beatsPerMinuteAvg?: number } }> }>('/v4/users/me/dataTypes/heart-rate/dataPoints:dailyRollUp', accessToken, body),
   ]);
+  const totalSteps = steps.rollupDataPoints?.reduce((sum, item) => sum + Number(item.steps?.countSum || 0), 0) || null;
+  const sleepMinutes = sleep.sessions?.reduce((sum, item) => sum + Number(item.summary?.minutesAsleep || 0), 0) || null;
+  const heartValues = heart.rollupDataPoints?.map((item) => item.heartRate?.bpmAvg || item.heartRate?.beatsPerMinuteAvg).filter(Boolean) as number[] | undefined;
+  const heartRate = heartValues?.length ? Math.round(heartValues.reduce((sum, value) => sum + value, 0) / heartValues.length) : null;
   const device = await prisma.wearable.update({
     where: { userId: authId(req) },
     data: {
       connected: true,
-      provider: 'fitbit',
-      dailySteps: activity.summary?.steps || null,
-      sleepHours: sleep.summary?.totalMinutesAsleep ? Number((sleep.summary.totalMinutesAsleep / 60).toFixed(2)) : null,
-      heartRate: heart['activities-heart']?.[0]?.value?.restingHeartRate || null,
+      provider: 'google-health',
+      dailySteps: totalSteps,
+      sleepHours: sleepMinutes ? Number((sleepMinutes / 60).toFixed(2)) : null,
+      heartRate,
       lastSync: new Date(),
-      deviceName: wearable.deviceName || 'Fitbit account',
+      deviceName: wearable.deviceName || 'Google Health account',
     },
   });
   const readiness = await applyWearableMetrics(authId(req), { steps: device.dailySteps, sleepHours: device.sleepHours, heartRate: device.heartRate });
   res.json({ device: publicWearable(device), readiness });
 }));
-app.delete('/api/wearables/fitbit', auth, asyncRoute(async (req, res) => {
+app.delete('/api/wearables/google-health', auth, asyncRoute(async (req, res) => {
   const device = await prisma.wearable.upsert({
     where: { userId: authId(req) },
     create: { userId: authId(req) },
