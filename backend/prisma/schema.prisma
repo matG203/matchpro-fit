@@ -143,6 +143,11 @@ model Wearable {
   id         String   @id @default(uuid())
   userId     String   @unique
   user       User     @relation(fields: [userId], references: [id])
+  provider   String?
+  providerUserId String?
+  accessToken String?
+  refreshToken String?
+  tokenExpiresAt DateTime?
   deviceType String?
   deviceName String?
   connected  Boolean  @default(false)

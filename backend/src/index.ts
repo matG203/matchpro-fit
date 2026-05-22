@@ -155,6 +155,72 @@ function jsonValue(value: unknown): Prisma.InputJsonValue {
   return (Array.isArray(value) ? value : []) as Prisma.InputJsonValue;
 }
 
+function frontendUrl() {
+  return (process.env.FRONTEND_URL || 'https://matchpro-fit.vercel.app').replace(/\/$/, '');
+}
+
+function fitbitConfig() {
+  const clientId = process.env.FITBIT_CLIENT_ID;
+  const clientSecret = process.env.FITBIT_CLIENT_SECRET;
+  const redirectUri = process.env.FITBIT_REDIRECT_URI || `${process.env.BACKEND_URL || 'https://matchpro-fit-production-db0c.up.railway.app'}/api/wearables/fitbit/callback`;
+  return { clientId, clientSecret, redirectUri, ready: Boolean(clientId && clientSecret && redirectUri) };
+}
+
+function fitbitAuthorization() {
+  const config = fitbitConfig();
+  return `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`;
+}
+
+async function fitbitToken(params: URLSearchParams) {
+  const response = await fetch('https://api.fitbit.com/oauth2/token', {
+    method: 'POST',
+    headers: { Authorization: fitbitAuthorization(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params,
+  });
+  const data = await response.json() as { access_token?: string; refresh_token?: string; expires_in?: number; user_id?: string; errors?: Array<{ message?: string }> };
+  if (!response.ok || !data.access_token) throw new Error(data.errors?.[0]?.message || 'Fitbit token exchange failed.');
+  return data;
+}
+
+async function validFitbitAccessToken(userId: string) {
+  const wearable = await prisma.wearable.findUniqueOrThrow({ where: { userId } });
+  if (!wearable.accessToken) throw new Error('Connect Fitbit before syncing.');
+  if (!wearable.tokenExpiresAt || wearable.tokenExpiresAt.getTime() > Date.now() + 60_000) return { wearable, accessToken: wearable.accessToken };
+  if (!wearable.refreshToken) throw new Error('Fitbit needs to be connected again.');
+  const token = await fitbitToken(new URLSearchParams({ grant_type: 'refresh_token', refresh_token: wearable.refreshToken }));
+  const updated = await prisma.wearable.update({
+    where: { userId },
+    data: {
+      accessToken: token.access_token,
+      refreshToken: token.refresh_token || wearable.refreshToken,
+      tokenExpiresAt: new Date(Date.now() + Number(token.expires_in || 3600) * 1000),
+    },
+  });
+  return { wearable: updated, accessToken: token.access_token! };
+}
+
+async function fitbitGet<T>(path: string, accessToken: string) {
+  const response = await fetch(`https://api.fitbit.com${path}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const data = await response.json() as T;
+  if (!response.ok) throw new Error('Fitbit data sync failed.');
+  return data;
+}
+
+function publicWearable<T extends { accessToken?: string | null; refreshToken?: string | null }>(wearable: T) {
+  const { accessToken: _accessToken, refreshToken: _refreshToken, ...safe } = wearable;
+  return safe;
+}
+
+async function applyWearableMetrics(userId: string, metrics: { steps?: number | null; heartRate?: number | null; sleepHours?: number | null }) {
+  await prisma.healthMetric.create({ data: { userId, steps: metrics.steps, heartRate: metrics.heartRate, sleepHours: metrics.sleepHours } });
+  await awardXp(userId, 20, 'wearable sync');
+  if (metrics.steps) await applyChallengeProgress(userId, 'steps', metrics.steps, 'max');
+  if (metrics.sleepHours) await applyChallengeProgress(userId, 'sleep', metrics.sleepHours, 'max');
+  const readiness = await calculateReadiness(userId);
+  await applyChallengeProgress(userId, 'readiness', readiness.score, 'max');
+  return readiness;
+}
+
 const cardKeys = ['pace', 'shooting', 'passing', 'dribbling', 'defending', 'physical'] as const;
 
 function overallOf(stats: Record<(typeof cardKeys)[number], number>) {
@@ -564,23 +630,96 @@ app.put('/api/routine', auth, asyncRoute(async (req, res) => {
   res.json(await prisma.routine.upsert({ where: { userId: authId(req) }, create: { userId: authId(req), ...data }, update: data }));
 }));
 
-app.get('/api/wearables', auth, asyncRoute(async (req, res) => res.json(await prisma.wearable.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} }))));
+app.get('/api/wearables', auth, asyncRoute(async (req, res) => {
+  const device = await prisma.wearable.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} });
+  res.json({ device: publicWearable(device), fitbitReady: fitbitConfig().ready });
+}));
 app.put('/api/wearables', auth, asyncRoute(async (req, res) => {
   const body = z.object({ deviceType: z.string().trim().max(60).optional().nullable(), deviceName: z.string().trim().max(80).optional().nullable(), connected: z.boolean().optional(), dailySteps: z.coerce.number().int().min(0).optional().nullable(), heartRate: z.coerce.number().int().min(20).max(260).optional().nullable(), sleepHours: z.coerce.number().min(0).max(24).optional().nullable() }).parse(req.body);
   const data = { ...body, lastSync: body.connected ? new Date() : undefined };
   const device = await prisma.wearable.upsert({ where: { userId: authId(req) }, create: { userId: authId(req), ...data }, update: data });
   let readiness;
   if (device.connected && (device.dailySteps || device.heartRate || device.sleepHours)) {
-    await prisma.healthMetric.create({
-      data: { userId: authId(req), steps: device.dailySteps, heartRate: device.heartRate, sleepHours: device.sleepHours },
-    });
-    await awardXp(authId(req), 20, 'wearable sync');
-    if (device.dailySteps) await applyChallengeProgress(authId(req), 'steps', device.dailySteps, 'max');
-    if (device.sleepHours) await applyChallengeProgress(authId(req), 'sleep', device.sleepHours, 'max');
-    readiness = await calculateReadiness(authId(req));
-    await applyChallengeProgress(authId(req), 'readiness', readiness.score, 'max');
+    readiness = await applyWearableMetrics(authId(req), { steps: device.dailySteps, heartRate: device.heartRate, sleepHours: device.sleepHours });
   }
-  res.json({ device, readiness });
+  res.json({ device: publicWearable(device), readiness });
+}));
+app.get('/api/wearables/fitbit/connect', auth, asyncRoute(async (req, res) => {
+  const config = fitbitConfig();
+  if (!config.ready) return res.status(503).json({ error: 'Fitbit is not configured yet.' });
+  const state = jwt.sign({ userId: authId(req), kind: 'fitbit' }, jwtSecret(), { expiresIn: '10m' });
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: config.clientId!,
+    redirect_uri: config.redirectUri,
+    scope: 'activity heartrate sleep profile',
+    state,
+  });
+  res.json({ url: `https://www.fitbit.com/oauth2/authorize?${params}` });
+}));
+app.get('/api/wearables/fitbit/callback', asyncRoute(async (req, res) => {
+  const code = z.string().min(1).parse(req.query.code);
+  const state = z.string().min(1).parse(req.query.state);
+  const payload = jwt.verify(state, jwtSecret()) as { userId?: string; kind?: string };
+  if (!payload.userId || payload.kind !== 'fitbit') return res.status(400).send('Invalid Fitbit connection state.');
+  const config = fitbitConfig();
+  if (!config.ready) return res.status(503).send('Fitbit is not configured.');
+  const token = await fitbitToken(new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: config.redirectUri }));
+  await prisma.wearable.upsert({
+    where: { userId: payload.userId },
+    create: {
+      userId: payload.userId,
+      provider: 'fitbit',
+      providerUserId: token.user_id,
+      accessToken: token.access_token,
+      refreshToken: token.refresh_token,
+      tokenExpiresAt: new Date(Date.now() + Number(token.expires_in || 3600) * 1000),
+      connected: true,
+      deviceType: 'Fitbit',
+      deviceName: 'Fitbit account',
+    },
+    update: {
+      provider: 'fitbit',
+      providerUserId: token.user_id,
+      accessToken: token.access_token,
+      refreshToken: token.refresh_token,
+      tokenExpiresAt: new Date(Date.now() + Number(token.expires_in || 3600) * 1000),
+      connected: true,
+      deviceType: 'Fitbit',
+      deviceName: 'Fitbit account',
+    },
+  });
+  res.redirect(`${frontendUrl()}/wearables?fitbit=connected`);
+}));
+app.post('/api/wearables/fitbit/sync', auth, asyncRoute(async (req, res) => {
+  const { wearable, accessToken } = await validFitbitAccessToken(authId(req));
+  const [activity, sleep, heart] = await Promise.all([
+    fitbitGet<{ summary?: { steps?: number } }>('/1/user/-/activities/date/today.json', accessToken),
+    fitbitGet<{ summary?: { totalMinutesAsleep?: number } }>('/1.2/user/-/sleep/date/today.json', accessToken),
+    fitbitGet<{ 'activities-heart'?: Array<{ value?: { restingHeartRate?: number } }> }>('/1/user/-/activities/heart/date/today/1d.json', accessToken),
+  ]);
+  const device = await prisma.wearable.update({
+    where: { userId: authId(req) },
+    data: {
+      connected: true,
+      provider: 'fitbit',
+      dailySteps: activity.summary?.steps || null,
+      sleepHours: sleep.summary?.totalMinutesAsleep ? Number((sleep.summary.totalMinutesAsleep / 60).toFixed(2)) : null,
+      heartRate: heart['activities-heart']?.[0]?.value?.restingHeartRate || null,
+      lastSync: new Date(),
+      deviceName: wearable.deviceName || 'Fitbit account',
+    },
+  });
+  const readiness = await applyWearableMetrics(authId(req), { steps: device.dailySteps, sleepHours: device.sleepHours, heartRate: device.heartRate });
+  res.json({ device: publicWearable(device), readiness });
+}));
+app.delete('/api/wearables/fitbit', auth, asyncRoute(async (req, res) => {
+  const device = await prisma.wearable.upsert({
+    where: { userId: authId(req) },
+    create: { userId: authId(req) },
+    update: { provider: null, providerUserId: null, accessToken: null, refreshToken: null, tokenExpiresAt: null, connected: false },
+  });
+  res.json({ device: publicWearable(device) });
 }));
 
 app.get('/api/settings', auth, asyncRoute(async (req, res) => res.json(await prisma.userSettings.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} }))));

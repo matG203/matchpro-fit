@@ -27,6 +27,18 @@ npm run dev
 
 The backend reads `DATABASE_URL`, `JWT_SECRET`, and `PORT`. The frontend reads `VITE_API_URL`; production uses the Railway API URL ending in `/api`.
 
+Fitbit live wearable sync additionally uses these Railway variables:
+
+```text
+FITBIT_CLIENT_ID=
+FITBIT_CLIENT_SECRET=
+FITBIT_REDIRECT_URI=https://matchpro-fit-production-db0c.up.railway.app/api/wearables/fitbit/callback
+FRONTEND_URL=https://matchpro-fit.vercel.app
+BACKEND_URL=https://matchpro-fit-production-db0c.up.railway.app
+```
+
+The Fitbit developer app redirect URL must exactly match `FITBIT_REDIRECT_URI`.
+
 ## Deployment
 
 Railway must build from `backend/Dockerfile` with repository root as the Docker build context. The Docker image runs compiled JavaScript from `dist/index.js`.
