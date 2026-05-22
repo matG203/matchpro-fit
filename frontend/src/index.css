@@ -99,15 +99,46 @@ button:disabled { cursor: wait; opacity: .55; }
 .player-figure.large { height: 23rem; margin-bottom: .4rem; }
 .player-figure.skin-deep { --skin: #6f3d2b; }
 .player-figure.skin-light { --skin: #efc29c; }
+.player-figure.skin-olive { --skin: #b4865d; }
+.player-figure.skin-golden { --skin: #d89658; }
+.player-figure.kit-home-red { --kit: #dc2626; --kit-shadow: #7f1d1d; }
+.player-figure.kit-mint { --kit: #2dd4bf; --kit-shadow: #0f766e; }
 .player-figure.kit-night { --kit: #111827; --kit-shadow: #0369a1; }
+.player-figure.kit-storm { --kit: #64748b; --kit-shadow: #1e293b; }
+.player-figure.kit-stripes { --kit: #f8fafc; --kit-shadow: #1e3a8a; }
+.player-figure.kit-platinum { --kit: #7c3aed; --kit-shadow: #c4b5fd; }
 .player-figure.kit-gold { --kit: #facc15; --kit-shadow: #92400e; }
+.player-figure.kit-elite { --kit: #020617; --kit-shadow: #facc15; }
 .player-figure i { display: block; position: absolute; }
+.figure-aura { border-radius: 50%; inset: 1rem 1.4rem 1.8rem; opacity: 0; z-index: 0; }
+.aura-speed .figure-aura { border-left: .45rem solid #67e8f9; border-right: .45rem solid #67e8f9; filter: blur(1px); opacity: .72; transform: skewX(-14deg); }
+.aura-pulse .figure-aura { background: radial-gradient(circle, #38bdf822, transparent 64%); border: .18rem solid #3b82f688; box-shadow: 0 0 24px #3b82f6; opacity: 1; }
+.aura-flare .figure-aura { background: radial-gradient(circle at 50% 78%, #f9731655, transparent 58%); border-bottom: .42rem solid #fbbf24; opacity: 1; }
+.aura-platinum .figure-aura { border: .22rem solid #c4b5fd; box-shadow: inset 0 0 28px #a78bfa, 0 0 22px #ddd6fe; opacity: 1; }
+.aura-elite .figure-aura { background: radial-gradient(circle, #facc1524, transparent 58%); border: .22rem dashed #facc15; box-shadow: 0 0 30px #facc15; opacity: 1; }
 .figure-shadow { background: #02061788; border-radius: 50%; bottom: .55rem; filter: blur(5px); height: 1.2rem; left: 19%; width: 62%; }
 .figure-head { background: var(--skin); border-radius: 50% 50% 46% 46%; box-shadow: inset -.3rem -.2rem #00000018; height: 3.15rem; left: 4.35rem; top: 1.2rem; width: 3rem; z-index: 4; }
+.figure-head b { display: block; position: absolute; }
+.figure-eye { background: #071020; border-radius: 50%; height: .27rem; top: 1.18rem; width: .27rem; }
+.figure-eye.left { left: .72rem; }
+.figure-eye.right { right: .72rem; }
+.figure-mouth { border-bottom: .16rem solid #40160f; border-radius: 50%; bottom: .61rem; height: .32rem; left: 1rem; width: .95rem; }
+.face-smile .figure-mouth { border-bottom-width: .22rem; bottom: .53rem; height: .55rem; width: 1rem; }
+.face-grit .figure-mouth { background: #fff; border: .12rem solid #40160f; border-radius: .12rem; bottom: .66rem; height: .28rem; }
+.face-wink .figure-eye.right { border-bottom: .15rem solid #071020; background: transparent; border-radius: 50%; height: .38rem; top: 1.08rem; width: .46rem; }
+.face-freckles .figure-face-detail { box-shadow: .32rem 0 #7c4329, .63rem .08rem #7c4329, 1.3rem -.03rem #7c4329, 1.62rem .07rem #7c4329; border-radius: 50%; height: .12rem; left: .55rem; top: 1.68rem; width: .12rem; }
+.face-beard .figure-face-detail { background: #28150f; border-radius: 0 0 1.2rem 1.2rem; bottom: .08rem; height: 1rem; left: .52rem; opacity: .85; width: 1.98rem; }
+.face-visor .figure-face-detail { background: linear-gradient(90deg, #67e8f9cc, #a78bfaee); border: .08rem solid #f8fafcaa; border-radius: 999px; box-shadow: 0 0 9px #67e8f9; height: .58rem; left: .42rem; top: .96rem; width: 2.15rem; }
 .figure-hair { background: #111827; border-radius: 1.6rem 1.6rem .5rem .5rem; height: 1.12rem; left: 4.28rem; top: .95rem; width: 3.16rem; z-index: 5; }
+.hair-crop .figure-hair { height: .78rem; }
 .hair-curls .figure-hair { border-radius: 1.8rem; box-shadow: -.38rem .18rem #111827, .4rem .15rem #111827, 0 .45rem #111827; height: 1.38rem; top: .72rem; }
+.hair-parted .figure-hair { background: linear-gradient(112deg, #111827 0 48%, #334155 49% 53%, #111827 54%); border-radius: 2rem .8rem .55rem .4rem; }
 .hair-bun .figure-hair:before { background: #111827; border-radius: 50%; content: ""; height: 1.35rem; left: .9rem; position: absolute; top: -1rem; width: 1.35rem; }
+.hair-braids .figure-hair:after { border-left: .34rem solid #111827; border-right: .34rem solid #111827; bottom: -2rem; content: ""; height: 2.2rem; left: .42rem; position: absolute; width: 1.96rem; }
+.hair-mohawk .figure-hair { border-radius: .3rem; height: 1.92rem; left: 5.2rem; top: -.46rem; width: 1.25rem; }
+.hair-silver .figure-hair { background: linear-gradient(90deg, #111827 0 54%, #e2e8f0 55% 68%, #111827 69%); }
 .figure-shirt { background: linear-gradient(120deg, var(--kit), var(--kit-shadow)); border-radius: 1.7rem 1.7rem .8rem .8rem; box-shadow: inset 0 .14rem #ffffff38; height: 5.1rem; left: 3.3rem; top: 4rem; width: 5.2rem; z-index: 3; }
+.kit-stripes .figure-shirt { background: repeating-linear-gradient(90deg, #f8fafc 0 .9rem, #2563eb .9rem 1.7rem); }
 .figure-shirt:after { background: #ffffffcc; border-radius: 999px; content: ""; height: .24rem; left: 1.1rem; position: absolute; top: 1rem; width: 3rem; }
 .figure-arm { background: linear-gradient(var(--kit) 0 42%, var(--skin) 42%); border-radius: 999px; height: 5.5rem; top: 4.55rem; width: 1.08rem; z-index: 2; }
 .figure-arm.left { left: 2.7rem; transform: rotate(16deg); }
@@ -121,12 +152,33 @@ button:disabled { cursor: wait; opacity: .55; }
 .figure-boot.right { right: 3.5rem; transform: scaleX(-1); }
 .figure-accessory { z-index: 6; }
 .accessory-tape .figure-accessory { border-bottom: .34rem solid white; border-top: .34rem solid white; height: 2.4rem; left: 2.56rem; top: 7.25rem; transform: rotate(16deg); width: 6.7rem; }
+.accessory-headband .figure-accessory { background: #f8fafc; border-radius: 999px; height: .34rem; left: 4.4rem; top: 1.23rem; width: 2.85rem; }
+.accessory-gloves .figure-arm:after { background: #0f172a; border-radius: 999px; bottom: -.08rem; content: ""; height: 1rem; left: -.08rem; position: absolute; width: 1.24rem; }
+.accessory-sleeves .figure-arm { background: linear-gradient(#e2e8f0 0 72%, var(--skin) 72%); }
 .accessory-captain .figure-accessory { background: #facc15; border-radius: 999px; height: .62rem; left: 2.64rem; top: 5.82rem; transform: rotate(16deg); width: 1.36rem; }
-.accessory-glow-boots .figure-boot { background: linear-gradient(90deg, #67e8f9, #facc15); box-shadow: 0 0 14px #67e8f9; }
+.accessory-medal .figure-accessory { border-left: .18rem solid #60a5fa; border-right: .18rem solid #ef4444; height: 1.5rem; left: 5.55rem; top: 4.2rem; width: .7rem; }
+.accessory-medal .figure-accessory:after { background: #facc15; border-radius: 50%; bottom: -.32rem; content: ""; height: .72rem; left: -.19rem; position: absolute; width: .72rem; }
+.accessory-scarf .figure-accessory { border-bottom: .44rem solid #ef4444; border-left: .44rem solid #ef4444; height: 1.85rem; left: 4.48rem; top: 3.72rem; transform: rotate(-8deg); width: 2.6rem; }
+.accessory-armour .figure-accessory { border-left: .48rem solid #c4b5fd; border-right: .48rem solid #c4b5fd; height: 1.8rem; left: 2.65rem; top: 4.8rem; width: 6.5rem; }
+.boots-white .figure-boot { background: #f8fafc; }
+.boots-speed-blue .figure-boot { background: linear-gradient(90deg, #1d4ed8, #67e8f9); }
+.boots-citrus .figure-boot { background: linear-gradient(90deg, #84cc16, #facc15); }
+.boots-pink .figure-boot { background: linear-gradient(90deg, #ec4899, #f9a8d4); }
+.boots-ice .figure-boot { background: linear-gradient(90deg, #e0f2fe, #38bdf8); box-shadow: 0 0 8px #bae6fd; }
+.boots-gold .figure-boot { background: linear-gradient(90deg, #92400e, #fde047); }
+.boots-glow .figure-boot { background: linear-gradient(90deg, #67e8f9, #facc15); box-shadow: 0 0 14px #67e8f9; }
+.pose-hands-hips .figure-arm.left { left: 2.95rem; top: 5.95rem; transform: rotate(-55deg); }
+.pose-hands-hips .figure-arm.right { right: 2.95rem; top: 5.95rem; transform: rotate(55deg); }
 .pose-celebrate .figure-arm.left { left: 3.3rem; top: 2.7rem; transform: rotate(145deg); transform-origin: top; }
 .pose-celebrate .figure-arm.right { right: 3.3rem; top: 2.7rem; transform: rotate(-145deg); transform-origin: top; }
+.pose-point .figure-arm.right { right: 1.92rem; top: 3.4rem; transform: rotate(70deg); transform-origin: top; }
 .pose-strike .figure-leg.right { right: 2.55rem; top: 9.58rem; transform: rotate(-58deg); transform-origin: top; }
 .pose-strike .figure-arm.right { transform: rotate(-42deg); }
+.pose-shield .figure-arm.left { left: 3.58rem; transform: rotate(-46deg); }
+.pose-shield .figure-arm.right { right: 3.58rem; transform: rotate(46deg); }
+.pose-icon { transform: scale(1.03); }
+.pose-icon .figure-arm.left { left: 2.2rem; transform: rotate(32deg); }
+.pose-icon .figure-arm.right { right: 2.2rem; transform: rotate(-32deg); }
 .readiness { aspect-ratio: 1; display: grid; margin: auto; max-width: 13rem; place-items: center; position: relative; }
 .readiness svg { height: 100%; transform: rotate(-90deg); width: 100%; }
 .readiness circle { fill: none; stroke-width: 13; } .ring-track { stroke: #ffffff17; } .ring-fill { stroke: url(#none); stroke: #60a5fa; stroke-linecap: round; transition: stroke-dashoffset 1s; filter: drop-shadow(0 0 9px #3b82f6); }

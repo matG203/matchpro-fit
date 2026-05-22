@@ -185,9 +185,12 @@ model AvatarLoadout {
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id])
   skin      String   @default("warm")
+  face      String   @default("focused")
   hair      String   @default("fade")
   kit       String   @default("academy")
   accessory String   @default("none")
+  boots     String   @default("black")
+  aura      String   @default("none")
   pose      String   @default("ready")
   updatedAt DateTime @updatedAt
 }

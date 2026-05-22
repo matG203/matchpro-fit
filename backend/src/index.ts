@@ -21,39 +21,88 @@ const levels = [
   { min: 1, tier: 'Bronze' },
 ];
 const avatarCatalog = [
-  { id: 'academy', name: 'Academy Spark', xp: 0, glyph: 'AC' },
-  { id: 'box-to-box', name: 'Box To Box', xp: 300, glyph: 'BB' },
-  { id: 'playmaker', name: 'Playmaker', xp: 900, glyph: 'PM' },
-  { id: 'finisher', name: 'Finisher', xp: 1800, glyph: 'FN' },
-  { id: 'captain', name: 'Captain', xp: 3200, glyph: 'CP' },
-  { id: 'elite-ace', name: 'Elite Ace', xp: 5200, glyph: 'EA' },
+  { id: 'academy', name: 'Academy Spark', level: 1, glyph: 'AC' },
+  { id: 'box-to-box', name: 'Box To Box', level: 3, glyph: 'BB' },
+  { id: 'playmaker', name: 'Playmaker', level: 6, glyph: 'PM' },
+  { id: 'finisher', name: 'Finisher', level: 10, glyph: 'FN' },
+  { id: 'captain', name: 'Captain', level: 16, glyph: 'CP' },
+  { id: 'elite-ace', name: 'Elite Ace', level: 25, glyph: 'EA' },
 ];
 const avatarParts = {
   skin: [
-    { id: 'warm', name: 'Warm', xp: 0 },
-    { id: 'deep', name: 'Deep', xp: 0 },
-    { id: 'light', name: 'Light', xp: 0 },
+    { id: 'warm', name: 'Warm', level: 1 },
+    { id: 'deep', name: 'Deep', level: 1 },
+    { id: 'light', name: 'Light', level: 1 },
+    { id: 'olive', name: 'Olive', level: 2 },
+    { id: 'golden', name: 'Golden', level: 5 },
+  ],
+  face: [
+    { id: 'focused', name: 'Focused', level: 1 },
+    { id: 'smile', name: 'Smiling', level: 2 },
+    { id: 'grit', name: 'Match Grit', level: 4 },
+    { id: 'wink', name: 'Cheeky Wink', level: 7 },
+    { id: 'freckles', name: 'Freckles', level: 9 },
+    { id: 'beard', name: 'Short Beard', level: 13 },
+    { id: 'visor', name: 'Game Visor', level: 20 },
   ],
   hair: [
-    { id: 'fade', name: 'Fade', xp: 0 },
-    { id: 'curls', name: 'Curls', xp: 400 },
-    { id: 'bun', name: 'Top Bun', xp: 1100 },
+    { id: 'fade', name: 'Fade', level: 1 },
+    { id: 'crop', name: 'Sharp Crop', level: 2 },
+    { id: 'curls', name: 'Curls', level: 3 },
+    { id: 'parted', name: 'Side Part', level: 5 },
+    { id: 'bun', name: 'Top Bun', level: 7 },
+    { id: 'braids', name: 'Braids', level: 11 },
+    { id: 'mohawk', name: 'Match Mohawk', level: 15 },
+    { id: 'silver', name: 'Silver Streak', level: 24 },
   ],
   kit: [
-    { id: 'academy', name: 'Academy Blue', xp: 0 },
-    { id: 'night', name: 'Night Match', xp: 700 },
-    { id: 'gold', name: 'Gold Trim', xp: 2200 },
+    { id: 'academy', name: 'Academy Blue', level: 1 },
+    { id: 'home-red', name: 'Home Red', level: 2 },
+    { id: 'mint', name: 'Recovery Mint', level: 4 },
+    { id: 'night', name: 'Night Match', level: 6 },
+    { id: 'storm', name: 'Storm Grey', level: 8 },
+    { id: 'stripes', name: 'Club Stripes', level: 12 },
+    { id: 'platinum', name: 'Platinum Pulse', level: 18 },
+    { id: 'gold', name: 'Gold Trim', level: 23 },
+    { id: 'elite', name: 'Elite Blackout', level: 32 },
   ],
   accessory: [
-    { id: 'none', name: 'No Accessory', xp: 0 },
-    { id: 'tape', name: 'Wrist Tape', xp: 250 },
-    { id: 'captain', name: 'Captain Band', xp: 1500 },
-    { id: 'glow-boots', name: 'Glow Boots', xp: 3600 },
+    { id: 'none', name: 'No Accessory', level: 1 },
+    { id: 'tape', name: 'Wrist Tape', level: 2 },
+    { id: 'headband', name: 'Headband', level: 3 },
+    { id: 'gloves', name: 'Cold Match Gloves', level: 5 },
+    { id: 'sleeves', name: 'Compression Sleeves', level: 8 },
+    { id: 'captain', name: 'Captain Band', level: 11 },
+    { id: 'medal', name: 'Winner Medal', level: 14 },
+    { id: 'scarf', name: 'Tunnel Scarf', level: 19 },
+    { id: 'armour', name: 'Elite Arm Plates', level: 28 },
+  ],
+  boots: [
+    { id: 'black', name: 'Black Boots', level: 1 },
+    { id: 'white', name: 'White Boots', level: 2 },
+    { id: 'speed-blue', name: 'Speed Blue', level: 4 },
+    { id: 'citrus', name: 'Citrus Studs', level: 6 },
+    { id: 'pink', name: 'Flair Pink', level: 9 },
+    { id: 'ice', name: 'Ice Boots', level: 13 },
+    { id: 'gold', name: 'Gold Boots', level: 21 },
+    { id: 'glow', name: 'Glow Boots', level: 30 },
+  ],
+  aura: [
+    { id: 'none', name: 'No Aura', level: 1 },
+    { id: 'speed', name: 'Speed Lines', level: 5 },
+    { id: 'pulse', name: 'Blue Pulse', level: 10 },
+    { id: 'flare', name: 'Goal Flare', level: 16 },
+    { id: 'platinum', name: 'Platinum Halo', level: 24 },
+    { id: 'elite', name: 'Elite Sparks', level: 36 },
   ],
   pose: [
-    { id: 'ready', name: 'Ready', xp: 0 },
-    { id: 'celebrate', name: 'Celebration', xp: 900 },
-    { id: 'strike', name: 'Strike', xp: 2800 },
+    { id: 'ready', name: 'Ready', level: 1 },
+    { id: 'hands-hips', name: 'Hands On Hips', level: 3 },
+    { id: 'celebrate', name: 'Celebration', level: 6 },
+    { id: 'point', name: 'Point To Badge', level: 10 },
+    { id: 'strike', name: 'Strike', level: 15 },
+    { id: 'shield', name: 'Defender Shield', level: 22 },
+    { id: 'icon', name: 'Icon Stance', level: 35 },
   ],
 } as const;
 const defaultChallenges = [
@@ -307,34 +356,39 @@ app.post('/api/onboarding', auth, asyncRoute(async (req, res) => {
 }));
 
 app.get('/api/avatar', auth, asyncRoute(async (req, res) => {
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { xp: true, avatarId: true } });
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { xp: true, level: true, avatarId: true } });
   const loadout = await prisma.avatarLoadout.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} });
   res.json({
+    level: user.level,
+    xp: user.xp,
     equipped: user.avatarId || avatarCatalog[0].id,
-    avatars: avatarCatalog.map((item) => ({ ...item, unlocked: user.xp >= item.xp })),
+    avatars: avatarCatalog.map((item) => ({ ...item, unlocked: user.level >= item.level })),
     loadout,
-    parts: Object.fromEntries(Object.entries(avatarParts).map(([part, options]) => [part, options.map((item) => ({ ...item, unlocked: user.xp >= item.xp }))])),
+    parts: Object.fromEntries(Object.entries(avatarParts).map(([part, options]) => [part, options.map((item) => ({ ...item, unlocked: user.level >= item.level }))])),
   });
 }));
 app.put('/api/avatar', auth, asyncRoute(async (req, res) => {
   const body = z.object({
     avatarId: z.string().optional(),
     skin: z.string().optional(),
+    face: z.string().optional(),
     hair: z.string().optional(),
     kit: z.string().optional(),
     accessory: z.string().optional(),
+    boots: z.string().optional(),
+    aura: z.string().optional(),
     pose: z.string().optional(),
   }).parse(req.body);
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { xp: true } });
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { level: true } });
   if (body.avatarId) {
     const avatar = avatarCatalog.find((item) => item.id === body.avatarId);
-    if (!avatar || avatar.xp > user.xp) return res.status(403).json({ error: 'Earn more XP to equip that avatar.' });
+    if (!avatar || avatar.level > user.level) return res.status(403).json({ error: 'Reach the unlock level to equip that crest.' });
     return res.json({ user: await prisma.user.update({ where: { id: authId(req) }, data: { avatarId: body.avatarId }, select: selectUser }) });
   }
   const nextLoadout = Object.fromEntries(Object.entries(body).filter(([key]) => key !== 'avatarId'));
   for (const [part, value] of Object.entries(nextLoadout)) {
     const option = avatarParts[part as keyof typeof avatarParts]?.find((item) => item.id === value);
-    if (!option || option.xp > user.xp) return res.status(403).json({ error: 'That player option is still locked.' });
+    if (!option || option.level > user.level) return res.status(403).json({ error: 'That player option is still locked by level.' });
   }
   res.json({ loadout: await prisma.avatarLoadout.upsert({ where: { userId: authId(req) }, create: { userId: authId(req), ...nextLoadout }, update: nextLoadout }) });
 }));
