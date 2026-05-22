@@ -197,8 +197,8 @@ async function validGoogleHealthAccessToken(userId: string) {
 
 async function googleHealthGet<T>(path: string, accessToken: string) {
   const response = await fetch(`https://health.googleapis.com${path}`, { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } });
-  const data = await response.json() as T;
-  if (!response.ok) throw new Error('Google Health data sync failed.');
+  const data = await response.json() as T & { error?: { message?: string; status?: string }; message?: string };
+  if (!response.ok) throw new Error(`Google Health ${response.status}: ${data.error?.message || data.message || path}`);
   return data;
 }
 
@@ -208,8 +208,8 @@ async function googleHealthPost<T>(path: string, accessToken: string, body: unkn
     headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  const data = await response.json() as T;
-  if (!response.ok) throw new Error('Google Health data sync failed.');
+  const data = await response.json() as T & { error?: { message?: string; status?: string }; message?: string };
+  if (!response.ok) throw new Error(`Google Health ${response.status}: ${data.error?.message || data.message || path}`);
   return data;
 }
 
@@ -217,12 +217,18 @@ function todayCivilRange() {
   const now = new Date();
   const date = { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
   return {
+    dataSourceFamily: 'users/me/dataSourceFamilies/google-wearables',
     range: {
       start: { date, time: { hours: 0, minutes: 0, seconds: 0, nanos: 0 } },
       end: { date, time: { hours: 23, minutes: 59, seconds: 59, nanos: 0 } },
     },
     windowSizeDays: 1,
   };
+}
+
+function todayDateString() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 function publicWearable<T extends { accessToken?: string | null; refreshToken?: string | null }>(wearable: T) {
@@ -727,15 +733,28 @@ app.get('/api/wearables/google-health/callback', asyncRoute(async (req, res) => 
 app.post('/api/wearables/google-health/sync', auth, asyncRoute(async (req, res) => {
   const { wearable, accessToken } = await validGoogleHealthAccessToken(authId(req));
   const body = todayCivilRange();
-  const [steps, sleep, heart] = await Promise.all([
+  const trackerQuery = new URLSearchParams({
+    dataSourceFamily: 'users/me/dataSourceFamilies/google-wearables',
+    filter: `sleep.interval.civil_end_time >= "${todayDateString()}"`,
+  }).toString();
+  const [stepsResult, sleepResult, heartResult] = await Promise.allSettled([
     googleHealthPost<{ rollupDataPoints?: Array<{ steps?: { countSum?: string } }> }>('/v4/users/me/dataTypes/steps/dataPoints:dailyRollUp', accessToken, body),
-    googleHealthPost<{ sessions?: Array<{ summary?: { minutesAsleep?: string } }> }>('/v4/users/me/dataTypes/sleep/sessions:reconcile', accessToken, { range: body.range }),
-    googleHealthPost<{ rollupDataPoints?: Array<{ heartRate?: { bpmAvg?: number; beatsPerMinuteAvg?: number } }> }>('/v4/users/me/dataTypes/heart-rate/dataPoints:dailyRollUp', accessToken, body),
+    googleHealthGet<{ dataPoints?: Array<{ sleep?: { summary?: { minutesAsleep?: string } } }> }>(`/v4/users/me/dataTypes/sleep/dataPoints:reconcile?${trackerQuery}`, accessToken),
+    googleHealthPost<{ rollupDataPoints?: Array<{ heartRate?: { beatsPerMinuteAvg?: number } }> }>('/v4/users/me/dataTypes/heart-rate/dataPoints:dailyRollUp', accessToken, body),
   ]);
-  const totalSteps = steps.rollupDataPoints?.reduce((sum, item) => sum + Number(item.steps?.countSum || 0), 0) || null;
-  const sleepMinutes = sleep.sessions?.reduce((sum, item) => sum + Number(item.summary?.minutesAsleep || 0), 0) || null;
-  const heartValues = heart.rollupDataPoints?.map((item) => item.heartRate?.bpmAvg || item.heartRate?.beatsPerMinuteAvg).filter(Boolean) as number[] | undefined;
+  const errors = [stepsResult, sleepResult, heartResult]
+    .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+    .map((result) => result.reason instanceof Error ? result.reason.message : String(result.reason));
+  const steps = stepsResult.status === 'fulfilled' ? stepsResult.value : undefined;
+  const sleep = sleepResult.status === 'fulfilled' ? sleepResult.value : undefined;
+  const heart = heartResult.status === 'fulfilled' ? heartResult.value : undefined;
+  const totalSteps = steps?.rollupDataPoints?.reduce((sum, item) => sum + Number(item.steps?.countSum || 0), 0) || null;
+  const sleepMinutes = sleep?.dataPoints?.reduce((sum, item) => sum + Number(item.sleep?.summary?.minutesAsleep || 0), 0) || null;
+  const heartValues = heart?.rollupDataPoints?.map((item) => Number(item.heartRate?.beatsPerMinuteAvg || 0)).filter(Boolean);
   const heartRate = heartValues?.length ? Math.round(heartValues.reduce((sum, value) => sum + value, 0) / heartValues.length) : null;
+  if (!totalSteps && !sleepMinutes && !heartRate) {
+    return res.status(502).json({ error: errors.length ? errors.join(' | ') : 'Google Health returned no tracker data for today.' });
+  }
   const device = await prisma.wearable.update({
     where: { userId: authId(req) },
     data: {
@@ -749,7 +768,7 @@ app.post('/api/wearables/google-health/sync', auth, asyncRoute(async (req, res) 
     },
   });
   const readiness = await applyWearableMetrics(authId(req), { steps: device.dailySteps, sleepHours: device.sleepHours, heartRate: device.heartRate });
-  res.json({ device: publicWearable(device), readiness });
+  res.json({ device: publicWearable(device), readiness, warnings: errors });
 }));
 app.delete('/api/wearables/google-health', auth, asyncRoute(async (req, res) => {
   const device = await prisma.wearable.upsert({
