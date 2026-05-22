@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import AppErrorBoundary from './components/AppErrorBoundary';
 import Layout from './components/layout/Layout';
 import { useAuthStore } from './store/authStore';
 import AvatarPage from './pages/AvatarPage';
@@ -42,7 +43,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
+      <AppErrorBoundary><Routes>
         <Route path="/" element={token ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -65,7 +66,7 @@ export default function App() {
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      </Routes></AppErrorBoundary>
     </BrowserRouter>
   );
 }

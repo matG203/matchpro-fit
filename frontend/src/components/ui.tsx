@@ -5,7 +5,8 @@ export function Panel({ title, action, children, className = '' }: { title?: str
 }
 
 export function Tier({ value }: { value: string }) {
-  return <span className={`tier tier-${value.toLowerCase()}`}>{value}</span>;
+  const tier = value || 'Bronze';
+  return <span className={`tier tier-${tier.toLowerCase()}`}>{tier}</span>;
 }
 
 export function AvatarMark({ id }: { id?: string | null }) {
