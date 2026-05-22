@@ -6,15 +6,16 @@ export type PlayerLoadout = {
   pose?: string;
 };
 
-export default function PlayerFigure({ loadout = {}, large = false }: { loadout?: PlayerLoadout; large?: boolean }) {
+export default function PlayerFigure({ loadout, large = false }: { loadout?: PlayerLoadout | null; large?: boolean }) {
+  const player = loadout || {};
   const classes = [
     'player-figure',
     large ? 'large' : '',
-    `skin-${loadout.skin || 'warm'}`,
-    `hair-${loadout.hair || 'fade'}`,
-    `kit-${loadout.kit || 'academy'}`,
-    `accessory-${loadout.accessory || 'none'}`,
-    `pose-${loadout.pose || 'ready'}`,
+    `skin-${player.skin || 'warm'}`,
+    `hair-${player.hair || 'fade'}`,
+    `kit-${player.kit || 'academy'}`,
+    `accessory-${player.accessory || 'none'}`,
+    `pose-${player.pose || 'ready'}`,
   ].filter(Boolean).join(' ');
   return <div className={classes} aria-label="Custom player avatar"><i className="figure-shadow" /><i className="figure-head" /><i className="figure-hair" /><i className="figure-shirt" /><i className="figure-arm left" /><i className="figure-arm right" /><i className="figure-shorts" /><i className="figure-leg left" /><i className="figure-leg right" /><i className="figure-boot left" /><i className="figure-boot right" /><i className="figure-accessory" /></div>;
 }
