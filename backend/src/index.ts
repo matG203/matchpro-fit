@@ -437,40 +437,63 @@ type ProgramExercise = {
   weightKg: number;
   restSeconds: number;
   equipment: string;
+  bodyParts: string[];
   instruction: string;
   progression: string;
 };
 
 const exerciseLibrary: Record<string, ProgramExercise[]> = {
   strength: [
-    { name: 'Goblet squat', sets: 4, reps: '8', weightKg: 0, restSeconds: 90, equipment: 'dumbbells', instruction: 'Hold one dumbbell tight to your chest, sit hips down between knees, then drive up through the floor.', progression: '' },
-    { name: 'Romanian deadlift', sets: 4, reps: '8', weightKg: 0, restSeconds: 90, equipment: 'barbell', instruction: 'Soft knees, push hips back, keep the bar close, stand tall by squeezing glutes.', progression: '' },
-    { name: 'Dumbbell bench press', sets: 4, reps: '8', weightKg: 0, restSeconds: 90, equipment: 'bench', instruction: 'Shoulder blades tucked, lower under control, press up without bouncing.', progression: '' },
-    { name: 'Walking lunge', sets: 3, reps: '10 each leg', weightKg: 0, restSeconds: 75, equipment: 'dumbbells', instruction: 'Step long, back knee down, front foot flat, stand through the front leg.', progression: '' },
-    { name: 'Split squat', sets: 3, reps: '10 each leg', weightKg: 0, restSeconds: 75, equipment: 'bodyweight', instruction: 'Back foot planted, drop straight down, keep the front knee tracking over toes.', progression: '' },
-    { name: 'Standing calf raise', sets: 3, reps: '15', weightKg: 0, restSeconds: 45, equipment: 'dumbbells', instruction: 'Rise high onto toes, pause briefly, lower slowly for ankle and sprint stiffness.', progression: '' },
-    { name: 'Plank', sets: 3, reps: '45 seconds', weightKg: 0, restSeconds: 45, equipment: 'bodyweight', instruction: 'Ribs down, glutes tight, keep a straight line from shoulders to ankles.', progression: '' },
+    { name: 'Goblet squat', sets: 4, reps: '8', weightKg: 0, restSeconds: 90, equipment: 'dumbbells', bodyParts: ['quads', 'glutes', 'core'], instruction: 'Hold one dumbbell tight to your chest, sit hips down between knees, then drive up through the floor.', progression: '' },
+    { name: 'Romanian deadlift', sets: 4, reps: '8', weightKg: 0, restSeconds: 90, equipment: 'barbell', bodyParts: ['hamstrings', 'glutes', 'back'], instruction: 'Soft knees, push hips back, keep the bar close, stand tall by squeezing glutes.', progression: '' },
+    { name: 'Dumbbell bench press', sets: 4, reps: '8', weightKg: 0, restSeconds: 90, equipment: 'bench', bodyParts: ['chest', 'triceps', 'shoulders'], instruction: 'Shoulder blades tucked, lower under control, press up without bouncing.', progression: '' },
+    { name: 'One-arm dumbbell row', sets: 4, reps: '10 each side', weightKg: 0, restSeconds: 75, equipment: 'dumbbells', bodyParts: ['back', 'biceps', 'core'], instruction: 'Brace on a bench or thigh, pull elbow to hip, pause, then lower slowly.', progression: '' },
+    { name: 'Overhead press', sets: 4, reps: '6', weightKg: 0, restSeconds: 90, equipment: 'dumbbells', bodyParts: ['shoulders', 'triceps', 'core'], instruction: 'Brace ribs down, press from shoulder height to overhead, finish with biceps near ears.', progression: '' },
+    { name: 'Walking lunge', sets: 3, reps: '10 each leg', weightKg: 0, restSeconds: 75, equipment: 'dumbbells', bodyParts: ['quads', 'glutes', 'hamstrings'], instruction: 'Step long, back knee down, front foot flat, stand through the front leg.', progression: '' },
+    { name: 'Split squat', sets: 3, reps: '10 each leg', weightKg: 0, restSeconds: 75, equipment: 'bodyweight', bodyParts: ['quads', 'glutes', 'balance'], instruction: 'Back foot planted, drop straight down, keep the front knee tracking over toes.', progression: '' },
+    { name: 'Hip thrust', sets: 4, reps: '10', weightKg: 0, restSeconds: 90, equipment: 'barbell', bodyParts: ['glutes', 'hamstrings'], instruction: 'Upper back on bench, tuck pelvis slightly, drive hips up and squeeze glutes at the top.', progression: '' },
+    { name: 'Cable face pull', sets: 3, reps: '15', weightKg: 0, restSeconds: 45, equipment: 'cable machine', bodyParts: ['shoulders', 'back'], instruction: 'Pull rope toward eye line, elbows high, squeeze shoulder blades without leaning back.', progression: '' },
+    { name: 'Bicep curl', sets: 3, reps: '12', weightKg: 0, restSeconds: 45, equipment: 'dumbbells', bodyParts: ['biceps'], instruction: 'Keep elbows close, curl without swinging, lower for two seconds.', progression: '' },
+    { name: 'Triceps rope pressdown', sets: 3, reps: '12', weightKg: 0, restSeconds: 45, equipment: 'cable machine', bodyParts: ['triceps'], instruction: 'Pin elbows by your ribs, press rope down, separate hands at the bottom.', progression: '' },
+    { name: 'Standing calf raise', sets: 3, reps: '15', weightKg: 0, restSeconds: 45, equipment: 'dumbbells', bodyParts: ['calves', 'ankles'], instruction: 'Rise high onto toes, pause briefly, lower slowly for ankle and sprint stiffness.', progression: '' },
+    { name: 'Copenhagen plank', sets: 3, reps: '25 seconds each side', weightKg: 0, restSeconds: 45, equipment: 'bench', bodyParts: ['adductors', 'core'], instruction: 'Top leg on bench, lift hips, keep body straight and squeeze inner thigh.', progression: '' },
+    { name: 'Plank', sets: 3, reps: '45 seconds', weightKg: 0, restSeconds: 45, equipment: 'bodyweight', bodyParts: ['core'], instruction: 'Ribs down, glutes tight, keep a straight line from shoulders to ankles.', progression: '' },
   ],
   speed: [
-    { name: 'A-skip drill', sets: 3, reps: '20m', weightKg: 0, restSeconds: 45, equipment: 'bodyweight', instruction: 'Pop off the ground, knee up, toe up, stay tall.', progression: '' },
-    { name: 'Acceleration sprint', sets: 6, reps: '20m', weightKg: 0, restSeconds: 90, equipment: 'cones', instruction: 'Lean forward, powerful first three steps, full recovery between reps.', progression: '' },
-    { name: 'Lateral bound', sets: 3, reps: '6 each side', weightKg: 0, restSeconds: 60, equipment: 'bodyweight', instruction: 'Jump sideways, stick the landing, keep knee stable.', progression: '' },
+    { name: 'A-skip drill', sets: 3, reps: '20m', weightKg: 0, restSeconds: 45, equipment: 'bodyweight', bodyParts: ['calves', 'hip flexors', 'coordination'], instruction: 'Pop off the ground, knee up, toe up, stay tall.', progression: '' },
+    { name: 'Acceleration sprint', sets: 6, reps: '20m', weightKg: 0, restSeconds: 90, equipment: 'cones', bodyParts: ['quads', 'glutes', 'calves'], instruction: 'Lean forward, powerful first three steps, full recovery between reps.', progression: '' },
+    { name: 'Flying 20m sprint', sets: 5, reps: '20m', weightKg: 0, restSeconds: 120, equipment: 'cones', bodyParts: ['hamstrings', 'glutes', 'calves'], instruction: 'Build for 20m, sprint fast but relaxed for 20m, then walk back fully.', progression: '' },
+    { name: 'Lateral bound', sets: 3, reps: '6 each side', weightKg: 0, restSeconds: 60, equipment: 'bodyweight', bodyParts: ['glutes', 'adductors', 'ankles'], instruction: 'Jump sideways, stick the landing, keep knee stable.', progression: '' },
+    { name: 'Plyo box jump', sets: 4, reps: '5', weightKg: 0, restSeconds: 75, equipment: 'plyo box', bodyParts: ['quads', 'glutes', 'calves'], instruction: 'Jump explosively, land quietly, step down rather than rebounding.', progression: '' },
   ],
   endurance: [
-    { name: 'Tempo run', sets: 4, reps: '4 minutes', weightKg: 0, restSeconds: 120, equipment: 'running shoes', instruction: 'Run at controlled hard pace, able to speak only short phrases.', progression: '' },
-    { name: 'Recovery jog', sets: 4, reps: '2 minutes', weightKg: 0, restSeconds: 30, equipment: 'running shoes', instruction: 'Keep this genuinely easy so the next tempo block is clean.', progression: '' },
+    { name: 'Tempo run', sets: 4, reps: '4 minutes', weightKg: 0, restSeconds: 120, equipment: 'running shoes', bodyParts: ['conditioning', 'calves', 'quads'], instruction: 'Run at controlled hard pace, able to speak only short phrases.', progression: '' },
+    { name: 'Recovery jog', sets: 4, reps: '2 minutes', weightKg: 0, restSeconds: 30, equipment: 'running shoes', bodyParts: ['conditioning'], instruction: 'Keep this genuinely easy so the next tempo block is clean.', progression: '' },
+    { name: 'Bike intervals', sets: 8, reps: '45 seconds hard', weightKg: 0, restSeconds: 75, equipment: 'bike', bodyParts: ['conditioning', 'quads'], instruction: 'Ride hard but controlled, then spin very easy during rest.', progression: '' },
+    { name: 'Rower aerobic blocks', sets: 3, reps: '6 minutes', weightKg: 0, restSeconds: 90, equipment: 'rower', bodyParts: ['conditioning', 'back', 'quads'], instruction: 'Smooth strokes, steady breathing, push legs first before pulling arms.', progression: '' },
   ],
   ball: [
-    { name: 'Wall pass first touch', sets: 4, reps: '60 seconds', weightKg: 0, restSeconds: 30, equipment: 'ball', instruction: 'One touch to set, one touch to pass. Alternate feet every rep.', progression: '' },
-    { name: 'Cone dribble changes', sets: 4, reps: '45 seconds', weightKg: 0, restSeconds: 45, equipment: 'cones', instruction: 'Attack each cone, change direction sharply, keep ball close.', progression: '' },
-    { name: 'Fatigue finishing', sets: 5, reps: '5 shots', weightKg: 0, restSeconds: 60, equipment: 'ball', instruction: 'Short shuttle before each shot, compose yourself, hit the target.', progression: '' },
+    { name: 'Wall pass first touch', sets: 4, reps: '60 seconds', weightKg: 0, restSeconds: 30, equipment: 'ball', bodyParts: ['technical', 'feet', 'coordination'], instruction: 'One touch to set, one touch to pass. Alternate feet every rep.', progression: '' },
+    { name: 'Cone dribble changes', sets: 4, reps: '45 seconds', weightKg: 0, restSeconds: 45, equipment: 'cones', bodyParts: ['technical', 'ankles', 'coordination'], instruction: 'Attack each cone, change direction sharply, keep ball close.', progression: '' },
+    { name: 'Fatigue finishing', sets: 5, reps: '5 shots', weightKg: 0, restSeconds: 60, equipment: 'ball', bodyParts: ['technical', 'shooting', 'conditioning'], instruction: 'Short shuttle before each shot, compose yourself, hit the target.', progression: '' },
+    { name: 'Shield and roll drill', sets: 4, reps: '45 seconds', weightKg: 0, restSeconds: 45, equipment: 'ball', bodyParts: ['technical', 'core', 'glutes'], instruction: 'Use your body between ball and defender, roll away, then accelerate two steps.', progression: '' },
   ],
   recovery: [
-    { name: 'Zone 2 bike or jog', sets: 1, reps: '25 minutes', weightKg: 0, restSeconds: 0, equipment: 'bike', instruction: 'Easy effort, nose-breathable pace, finish feeling better than you started.', progression: '' },
-    { name: 'Hip flexor mobility', sets: 2, reps: '60 seconds each side', weightKg: 0, restSeconds: 20, equipment: 'mat', instruction: 'Squeeze back-leg glute and gently shift hips forward.', progression: '' },
-    { name: 'Ankle rocks', sets: 2, reps: '12 each side', weightKg: 0, restSeconds: 20, equipment: 'bodyweight', instruction: 'Keep heel down and drive knee over toes with control.', progression: '' },
+    { name: 'Zone 2 bike or jog', sets: 1, reps: '25 minutes', weightKg: 0, restSeconds: 0, equipment: 'bike', bodyParts: ['conditioning', 'recovery'], instruction: 'Easy effort, nose-breathable pace, finish feeling better than you started.', progression: '' },
+    { name: 'Hip flexor mobility', sets: 2, reps: '60 seconds each side', weightKg: 0, restSeconds: 20, equipment: 'mat', bodyParts: ['hip flexors', 'glutes'], instruction: 'Squeeze back-leg glute and gently shift hips forward.', progression: '' },
+    { name: 'Ankle rocks', sets: 2, reps: '12 each side', weightKg: 0, restSeconds: 20, equipment: 'bodyweight', bodyParts: ['ankles', 'calves'], instruction: 'Keep heel down and drive knee over toes with control.', progression: '' },
+    { name: 'Foam roll calves and quads', sets: 2, reps: '60 seconds each area', weightKg: 0, restSeconds: 20, equipment: 'foam roller', bodyParts: ['calves', 'quads', 'recovery'], instruction: 'Roll slowly, pause on tender points, keep breathing easy.', progression: '' },
   ],
 };
+
+function allProgramExercises() {
+  const seen = new Set<string>();
+  return Object.values(exerciseLibrary).flat().filter((item) => {
+    if (seen.has(item.name)) return false;
+    seen.add(item.name);
+    return true;
+  });
+}
 
 function roundLoad(value: number) {
   return Math.max(0, Math.round(value / 2.5) * 2.5);
@@ -482,8 +505,12 @@ function exerciseLoad(exercise: ProgramExercise, weightKg: number, age: number) 
     'Goblet squat': 0.32,
     'Romanian deadlift': 0.55,
     'Dumbbell bench press': 0.22,
+    'One-arm dumbbell row': 0.2,
+    'Overhead press': 0.18,
     'Walking lunge': 0.18,
     'Split squat': 0,
+    'Hip thrust': 0.6,
+    'Bicep curl': 0.08,
     'Standing calf raise': 0.22,
   };
   return roundLoad((ratios[exercise.name] || 0) * weightKg * ageFactor);
@@ -517,12 +544,18 @@ async function previousExercise(userId: string, name: string) {
   return null;
 }
 
-async function buildProgram(userId: string, input: { equipment: string[]; goal: string; minutes: number; type: string }) {
+async function buildProgram(userId: string, input: { equipment: string[]; goal: string; minutes: number; type: string; bodyParts: string[] }) {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { age: true, weight: true } });
   const equipment = new Set(input.equipment);
-  const base = exerciseLibrary[input.goal] || exerciseLibrary.ball;
-  const available = base.filter((item) => item.equipment === 'bodyweight' || equipment.has(item.equipment) || equipment.has('gym'));
-  const selected = (available.length ? available : base).slice(0, input.minutes >= 60 ? 6 : 4);
+  const bodyParts = new Set(input.bodyParts || []);
+  const base = [...(exerciseLibrary[input.goal] || exerciseLibrary.ball), ...allProgramExercises()];
+  const available = base.filter((item) => item.equipment === 'bodyweight' || item.equipment === 'running shoes' || equipment.has(item.equipment) || equipment.has('gym'));
+  const scored = (available.length ? available : base).map((item) => ({
+    item,
+    score: item.bodyParts.filter((part) => bodyParts.has(part)).length * 4 + (item.equipment === 'bodyweight' || equipment.has(item.equipment) ? 1 : 0),
+  })).sort((a, b) => b.score - a.score || a.item.name.localeCompare(b.item.name));
+  const selectedPool = scored.filter((entry) => !bodyParts.size || entry.score >= 4);
+  const selected = (selectedPool.length ? selectedPool : scored).map((entry) => entry.item).slice(0, input.minutes >= 60 ? 6 : 4);
   const exercises = await Promise.all(selected.map(async (item) => {
     const last = await previousExercise(userId, item.name);
     const baseWeight = exerciseLoad(item, Number(user.weight || 70), Number(user.age || 24));
@@ -536,7 +569,8 @@ async function buildProgram(userId: string, input: { equipment: string[]; goal: 
   }));
   const intensity = input.goal === 'recovery' ? 'low' : input.goal === 'speed' || input.goal === 'strength' ? 'high' : 'medium';
   const type = input.goal === 'ball' ? 'football' : input.goal === 'strength' ? 'gym' : input.type;
-  return { type, duration: input.minutes, intensity, exercises };
+  const recommended = scored.map((entry) => entry.item).slice(0, 18);
+  return { type, duration: input.minutes, intensity, targetBodyParts: input.bodyParts, exercises, recommended };
 }
 
 function testGains(test: { sprint30m?: number; run5kMinutes?: number; yoyoLevel?: number; plankSeconds?: number; jumpCm?: number }) {
@@ -960,6 +994,7 @@ app.post('/api/workout', auth, asyncRoute(async (req, res) => {
 app.post('/api/program/generate', auth, asyncRoute(async (req, res) => {
   const body = z.object({
     equipment: z.array(z.string()).default([]),
+    bodyParts: z.array(z.string()).default([]),
     goal: z.enum(['speed', 'endurance', 'strength', 'ball', 'recovery']).default('ball'),
     minutes: z.coerce.number().int().min(20).max(120).default(45),
     type: z.enum(['running', 'gym', 'football', 'swimming', 'cycling', 'other']).default('football'),
@@ -975,6 +1010,7 @@ app.post('/api/program/complete', auth, asyncRoute(async (req, res) => {
     weightKg: z.coerce.number().min(0).max(500),
     restSeconds: z.coerce.number().int().min(0).max(600),
     equipment: z.string().trim().max(40),
+    bodyParts: z.array(z.string()).default([]),
     instruction: z.string().trim().max(500),
     progression: z.string().trim().max(500).optional(),
   });

@@ -95,9 +95,12 @@ button:disabled { cursor: wait; opacity: .55; }
 .choice small { align-items: center; display: inline-flex; gap: .28rem; }
 .choice.selected { background: linear-gradient(135deg, #2563eb, #38bdf8); border-color: #bfdbfe; }
 .exercise-list { display: grid; gap: .9rem; }
-.exercise-card { background: #ffffff0b; border: 1px solid #ffffff14; border-radius: 8px; display: grid; gap: .9rem; grid-template-columns: minmax(0, 1fr) minmax(18rem, .8fr) auto; padding: 1rem; }
+.exercise-card { background: #ffffff0b; border: 1px solid #ffffff14; border-radius: 8px; display: grid; gap: .9rem; padding: 1rem; }
 .exercise-card h3 { margin: 0 0 .3rem; }
-.exercise-fields { display: grid; gap: .6rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.exercise-title-row, .button-row { align-items: center; display: flex; flex-wrap: wrap; gap: .7rem; justify-content: space-between; }
+.exercise-title-row input { flex: 1 1 18rem; font-weight: 800; }
+.ghost-button, .secondary-button { background: #ffffff0c; border-color: #ffffff24; box-shadow: none; }
+.exercise-fields { display: grid; gap: .6rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .exercise-fields label { font-size: .82rem; margin: 0; }
 .exercise-fields input { margin-top: .25rem; min-height: 2.35rem; padding: .45rem .55rem; }
 .connection-pill { background: #ef44441b; border: 1px solid #ef444466; border-radius: 999px; color: #fecaca; font-weight: 800; padding: .42rem .7rem; }
