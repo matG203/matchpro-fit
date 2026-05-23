@@ -75,7 +75,15 @@ export default function WorkoutPlannerPage() {
   });
   const [program, setProgram] = useState<Program>();
   const [message, setMessage] = useState('');
+  const [exerciseSearch, setExerciseSearch] = useState('');
   const xpPreview = useMemo(() => xpPreviewFor(program), [program]);
+  const recommendedExercises = useMemo(() => {
+    const query = exerciseSearch.trim().toLowerCase();
+    return (program?.recommended || []).filter((item) => {
+      const searchable = `${item.name} ${item.equipment} ${item.bodyParts.join(' ')} ${item.instruction}`.toLowerCase();
+      return !query || searchable.includes(query);
+    });
+  }, [exerciseSearch, program]);
 
   function toggleList(key: 'equipment' | 'bodyParts', item: string) {
     setSetup((current) => ({
@@ -115,6 +123,8 @@ export default function WorkoutPlannerPage() {
     try {
       const { data } = await api.post('/program/complete', program);
       setMessage(`Program complete. +${data.workout.xpEarned} XP and readiness is now ${data.readiness.score}%.`);
+      setProgram(undefined);
+      setExerciseSearch('');
     } catch (error) {
       setMessage(errorMessage(error));
     }
@@ -194,9 +204,13 @@ export default function WorkoutPlannerPage() {
 
             {!!program.recommended?.length && (
               <div>
-                <h3>Recommended Exercise Picker</h3>
+                <div className="between">
+                  <h3>Searchable Exercise Picker</h3>
+                  <span className="score-chip">{recommendedExercises.length} matches</span>
+                </div>
+                <input value={exerciseSearch} onChange={(e) => setExerciseSearch(e.target.value)} placeholder="Search by exercise, equipment, or body part" />
                 <div className="choice-row equipment-grid">
-                  {program.recommended.map((item) => (
+                  {recommendedExercises.map((item) => (
                     <button type="button" className="choice" key={item.name} onClick={() => addExercise(item)}>
                       <span>{item.name}</span>
                       <small>{item.bodyParts.join(', ')}</small>

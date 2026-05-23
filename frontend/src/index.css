@@ -105,6 +105,38 @@ button:disabled { cursor: wait; opacity: .55; }
 .exercise-fields input { margin-top: .25rem; min-height: 2.35rem; padding: .45rem .55rem; }
 .connection-pill { background: #ef44441b; border: 1px solid #ef444466; border-radius: 999px; color: #fecaca; font-weight: 800; padding: .42rem .7rem; }
 .connection-pill.online { background: #22c55e1b; border-color: #22c55e66; color: #bbf7d0; }
+.body-recovery-wrap { align-items: center; display: grid; gap: 1.2rem; grid-template-columns: minmax(12rem, .7fr) minmax(0, 1fr); }
+.body-map { aspect-ratio: 2 / 3; margin: auto; max-width: 18rem; position: relative; width: 100%; }
+.body-zone { border: 1px solid #ffffff55; box-shadow: 0 0 1.2rem #0008 inset, 0 .4rem 1rem #0004; position: absolute; transition: opacity .2s ease, transform .2s ease; }
+.body-zone:hover { transform: scale(1.04); z-index: 3; }
+.body-zone.head { border-radius: 50%; height: 10%; left: 42%; top: 1%; width: 16%; }
+.body-zone.chest { border-radius: 42% 42% 18% 18%; height: 15%; left: 35%; top: 14%; width: 30%; }
+.body-zone.torso { border-radius: 18% 18% 35% 35%; height: 18%; left: 37%; top: 29%; width: 26%; }
+.body-zone.back { border-radius: 40%; height: 15%; left: 41%; top: 18%; width: 18%; }
+.body-zone.shoulder-left, .body-zone.shoulder-right { border-radius: 50%; height: 9%; top: 15%; width: 10%; }
+.body-zone.shoulder-left { left: 25%; }
+.body-zone.shoulder-right { right: 25%; }
+.body-zone.arm-left, .body-zone.arm-right { border-radius: 999px; height: 28%; top: 24%; width: 8%; }
+.body-zone.arm-left { left: 22%; transform: rotate(9deg); }
+.body-zone.arm-right { right: 22%; transform: rotate(-9deg); }
+.body-zone.hip-left, .body-zone.hip-right { border-radius: 45%; height: 10%; top: 47%; width: 13%; }
+.body-zone.hip-left { left: 36%; }
+.body-zone.hip-right { right: 36%; }
+.body-zone.glutes { border-radius: 40%; height: 9%; left: 41%; top: 50%; width: 18%; }
+.body-zone.leg-left, .body-zone.leg-right { border-radius: 999px; height: 28%; top: 57%; width: 10%; }
+.body-zone.leg-left { left: 36%; }
+.body-zone.leg-right { right: 36%; }
+.body-zone.calf-left, .body-zone.calf-right { border-radius: 999px; height: 16%; top: 78%; width: 8%; }
+.body-zone.calf-left { left: 38%; }
+.body-zone.calf-right { right: 38%; }
+.body-zone.ankle-left, .body-zone.ankle-right { border-radius: 999px; height: 4%; top: 94%; width: 10%; }
+.body-zone.ankle-left { left: 36%; }
+.body-zone.ankle-right { right: 36%; }
+.body-zone.ball { border-radius: 50%; bottom: 2%; height: 9%; right: 12%; width: 9%; }
+.recovery-legend { display: flex; flex-wrap: wrap; gap: .65rem; }
+.recovery-legend span { align-items: center; color: #bfdbfe; display: inline-flex; font-size: .82rem; gap: .35rem; }
+.recovery-legend i { border-radius: 999px; display: inline-block; height: .7rem; width: .7rem; }
+.body-load-list { display: grid; gap: .55rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .player-figure { --skin: #b97852; --kit: #2563eb; --kit-shadow: #1d4ed8; aspect-ratio: 4 / 5; height: 14.8rem; margin: auto; position: relative; transform-origin: 50% 100%; width: 11.8rem; }
 .player-figure.large { height: 23rem; margin-bottom: .4rem; }
 .player-figure.skin-deep { --skin: #6f3d2b; }

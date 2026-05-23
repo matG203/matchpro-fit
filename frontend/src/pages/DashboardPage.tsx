@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PlayerCard from '../components/card/PlayerCard';
+import BodyRecoveryMap from '../components/dashboard/BodyRecoveryMap';
 import ReadinessRing from '../components/dashboard/ReadinessRing';
 import XPBar from '../components/dashboard/XPBar';
 import { Empty, Panel, Tier } from '../components/ui';
@@ -46,6 +47,7 @@ export default function DashboardPage() {
         <Panel title="Match Readiness"><ReadinessRing score={readiness.score || 0} />{readiness.target && <p className="muted">{readiness.target}</p>}<div className="stat-grid">{Object.entries(factors).map(([label, value]) => <div className="stat" key={label}><strong>{String(value)}%</strong><small>{label}</small></div>)}</div></Panel>
         <Panel title="Level Progress" action={<Link className="button secondary" to="/workout-planner">Open Programmer</Link>}><XPBar xp={user.xp || 0} floor={xp.levelFloorXp} next={xp.nextLevelXp} /><div className="stat-grid" style={{ marginTop: '1rem' }}><div className="stat"><strong>{stats.totalXp}</strong><small>Total XP</small></div><div className="stat"><strong>{stats.workoutsThisWeek}</strong><small>Workouts This Week</small></div><div className="stat"><strong>{stats.streak}</strong><small>Day Streak</small></div></div></Panel>
       </div>
+      <Panel title="Body Recovery Map" action={<Link className="button secondary" to="/workout-planner">Plan Around It</Link>}><BodyRecoveryMap map={data.recoveryMap} /></Panel>
       <Panel title="Wearable Sync" action={data.googleHealthReady && data.wearable?.provider === 'google-health' ? <button className="secondary" disabled={syncing} onClick={syncGoogleHealth}>{syncing ? 'Syncing...' : 'Sync Google Health'}</button> : <Link className="button secondary" to="/wearables">Connect Wearable</Link>}>{syncMessage && <p className={syncMessage.includes('Synced') ? 'success' : 'error'}>{syncMessage}</p>}<p className="muted">Sync steps, sleep, and heart-rate data from the dashboard so daily objectives and readiness update without leaving the home screen.</p>{data.wearable?.lastSync && <small>Last Sync: {new Date(data.wearable.lastSync).toLocaleString()}</small>}</Panel>
       {data.recommendation && <Panel title={data.recommendation.title} action={<Link className="button secondary" to="/workout-planner">{data.recommendation.action}</Link>}><p className="muted">{data.recommendation.body}</p></Panel>}
       <div className="grid-2">

@@ -486,9 +486,60 @@ const exerciseLibrary: Record<string, ProgramExercise[]> = {
   ],
 };
 
+const weightExerciseLibrary: ProgramExercise[] = [
+  { name: 'Back squat', sets: 5, reps: '5', weightKg: 0, restSeconds: 150, equipment: 'squat rack', bodyParts: ['quads', 'glutes', 'core'], instruction: 'Bar on upper back, brace hard, squat to controlled depth, drive up through mid-foot.', progression: '' },
+  { name: 'Front squat', sets: 4, reps: '6', weightKg: 0, restSeconds: 120, equipment: 'barbell', bodyParts: ['quads', 'core', 'glutes'], instruction: 'Elbows high, torso tall, sit between knees, stand without collapsing forward.', progression: '' },
+  { name: 'Leg press', sets: 4, reps: '10', weightKg: 0, restSeconds: 90, equipment: 'gym', bodyParts: ['quads', 'glutes'], instruction: 'Feet shoulder width, lower under control, press without locking knees aggressively.', progression: '' },
+  { name: 'Leg extension', sets: 3, reps: '12', weightKg: 0, restSeconds: 60, equipment: 'gym', bodyParts: ['quads'], instruction: 'Lift smoothly, squeeze quads at the top, lower for two seconds.', progression: '' },
+  { name: 'Step-up', sets: 3, reps: '10 each leg', weightKg: 0, restSeconds: 75, equipment: 'dumbbells', bodyParts: ['quads', 'glutes', 'balance'], instruction: 'Whole foot on box, drive through front leg, control the lower back down.', progression: '' },
+  { name: 'Bulgarian split squat', sets: 3, reps: '8 each leg', weightKg: 0, restSeconds: 90, equipment: 'dumbbells', bodyParts: ['quads', 'glutes', 'adductors'], instruction: 'Back foot raised, drop straight down, keep front foot planted and torso controlled.', progression: '' },
+  { name: 'Trap bar deadlift', sets: 4, reps: '5', weightKg: 0, restSeconds: 150, equipment: 'gym', bodyParts: ['glutes', 'hamstrings', 'quads', 'back'], instruction: 'Brace, push floor away, stand tall without yanking from the lower back.', progression: '' },
+  { name: 'Conventional deadlift', sets: 4, reps: '5', weightKg: 0, restSeconds: 150, equipment: 'barbell', bodyParts: ['hamstrings', 'glutes', 'back', 'core'], instruction: 'Bar close, lats tight, push through the floor and finish tall.', progression: '' },
+  { name: 'Sumo deadlift', sets: 4, reps: '5', weightKg: 0, restSeconds: 150, equipment: 'barbell', bodyParts: ['glutes', 'adductors', 'hamstrings'], instruction: 'Wide stance, knees out, chest tall, pull the bar straight up.', progression: '' },
+  { name: 'Hamstring curl', sets: 3, reps: '12', weightKg: 0, restSeconds: 60, equipment: 'gym', bodyParts: ['hamstrings'], instruction: 'Curl heels toward glutes, pause, then lower slowly.', progression: '' },
+  { name: 'Nordic hamstring lower', sets: 3, reps: '4', weightKg: 0, restSeconds: 120, equipment: 'bodyweight', bodyParts: ['hamstrings', 'glutes'], instruction: 'Lower as slowly as possible, catch with hands, push back to start.', progression: '' },
+  { name: 'Single-leg Romanian deadlift', sets: 3, reps: '8 each leg', weightKg: 0, restSeconds: 75, equipment: 'dumbbells', bodyParts: ['hamstrings', 'glutes', 'balance'], instruction: 'Hinge on one leg, hips square, reach the free leg back and stand tall.', progression: '' },
+  { name: 'Glute bridge', sets: 4, reps: '12', weightKg: 0, restSeconds: 60, equipment: 'bodyweight', bodyParts: ['glutes', 'hamstrings'], instruction: 'Feet planted, ribs down, drive hips up and squeeze glutes.', progression: '' },
+  { name: 'Cable pull-through', sets: 3, reps: '12', weightKg: 0, restSeconds: 60, equipment: 'cable machine', bodyParts: ['glutes', 'hamstrings'], instruction: 'Hinge back with cable between legs, stand by squeezing glutes.', progression: '' },
+  { name: 'Seated calf raise', sets: 4, reps: '15', weightKg: 0, restSeconds: 45, equipment: 'gym', bodyParts: ['calves', 'ankles'], instruction: 'Full stretch, rise high, pause at the top, lower slowly.', progression: '' },
+  { name: 'Tibialis raise', sets: 3, reps: '18', weightKg: 0, restSeconds: 45, equipment: 'bodyweight', bodyParts: ['ankles', 'calves'], instruction: 'Lean against wall, lift toes toward shins, control every rep.', progression: '' },
+  { name: 'Bench press', sets: 5, reps: '5', weightKg: 0, restSeconds: 150, equipment: 'barbell', bodyParts: ['chest', 'triceps', 'shoulders'], instruction: 'Shoulder blades tucked, touch chest under control, press to strong lockout.', progression: '' },
+  { name: 'Incline dumbbell press', sets: 4, reps: '8', weightKg: 0, restSeconds: 90, equipment: 'dumbbells', bodyParts: ['chest', 'shoulders', 'triceps'], instruction: 'Bench slightly inclined, lower to upper chest, press without flaring elbows.', progression: '' },
+  { name: 'Push-up', sets: 4, reps: 'max clean reps', weightKg: 0, restSeconds: 75, equipment: 'bodyweight', bodyParts: ['chest', 'triceps', 'core'], instruction: 'Straight body, chest near floor, press up while keeping ribs down.', progression: '' },
+  { name: 'Cable fly', sets: 3, reps: '12', weightKg: 0, restSeconds: 60, equipment: 'cable machine', bodyParts: ['chest'], instruction: 'Soft elbows, bring hands together, squeeze chest without shrugging.', progression: '' },
+  { name: 'Dumbbell fly', sets: 3, reps: '10', weightKg: 0, restSeconds: 75, equipment: 'dumbbells', bodyParts: ['chest', 'shoulders'], instruction: 'Open arms with control, feel chest stretch, bring dumbbells back over chest.', progression: '' },
+  { name: 'Pull-up', sets: 4, reps: 'max clean reps', weightKg: 0, restSeconds: 120, equipment: 'pull-up bar', bodyParts: ['back', 'biceps', 'core'], instruction: 'Start from full hang, pull chest toward bar, lower under control.', progression: '' },
+  { name: 'Lat pulldown', sets: 4, reps: '10', weightKg: 0, restSeconds: 75, equipment: 'gym', bodyParts: ['back', 'biceps'], instruction: 'Pull elbows down to ribs, keep chest proud, avoid swinging.', progression: '' },
+  { name: 'Barbell row', sets: 4, reps: '8', weightKg: 0, restSeconds: 90, equipment: 'barbell', bodyParts: ['back', 'biceps', 'core'], instruction: 'Hinge, brace, row bar to lower ribs, pause briefly.', progression: '' },
+  { name: 'Seated cable row', sets: 4, reps: '10', weightKg: 0, restSeconds: 75, equipment: 'cable machine', bodyParts: ['back', 'biceps'], instruction: 'Tall posture, pull handles to ribs, squeeze shoulder blades.', progression: '' },
+  { name: 'Chest-supported row', sets: 4, reps: '10', weightKg: 0, restSeconds: 75, equipment: 'bench', bodyParts: ['back', 'biceps'], instruction: 'Lie chest-down on incline bench, row dumbbells without shrugging.', progression: '' },
+  { name: 'Straight-arm pulldown', sets: 3, reps: '12', weightKg: 0, restSeconds: 60, equipment: 'cable machine', bodyParts: ['back', 'core'], instruction: 'Arms almost straight, pull bar to thighs, feel lats do the work.', progression: '' },
+  { name: 'Dumbbell lateral raise', sets: 3, reps: '15', weightKg: 0, restSeconds: 45, equipment: 'dumbbells', bodyParts: ['shoulders'], instruction: 'Raise to shoulder height, lead with elbows, lower slowly.', progression: '' },
+  { name: 'Arnold press', sets: 3, reps: '10', weightKg: 0, restSeconds: 75, equipment: 'dumbbells', bodyParts: ['shoulders', 'triceps'], instruction: 'Start palms facing you, rotate and press overhead with control.', progression: '' },
+  { name: 'Rear delt fly', sets: 3, reps: '15', weightKg: 0, restSeconds: 45, equipment: 'dumbbells', bodyParts: ['shoulders', 'back'], instruction: 'Hinge forward, raise dumbbells out wide, squeeze rear shoulders.', progression: '' },
+  { name: 'Upright row', sets: 3, reps: '10', weightKg: 0, restSeconds: 60, equipment: 'barbell', bodyParts: ['shoulders', 'back'], instruction: 'Pull to lower chest with elbows high only if shoulders feel good.', progression: '' },
+  { name: 'Close-grip bench press', sets: 4, reps: '8', weightKg: 0, restSeconds: 90, equipment: 'barbell', bodyParts: ['triceps', 'chest'], instruction: 'Hands just inside shoulder width, elbows tucked, press strongly.', progression: '' },
+  { name: 'Overhead triceps extension', sets: 3, reps: '12', weightKg: 0, restSeconds: 60, equipment: 'dumbbells', bodyParts: ['triceps'], instruction: 'Elbows point forward, lower behind head, extend without flaring.', progression: '' },
+  { name: 'Skull crusher', sets: 3, reps: '10', weightKg: 0, restSeconds: 60, equipment: 'barbell', bodyParts: ['triceps'], instruction: 'Upper arms still, lower toward forehead, extend smoothly.', progression: '' },
+  { name: 'Hammer curl', sets: 3, reps: '12', weightKg: 0, restSeconds: 45, equipment: 'dumbbells', bodyParts: ['biceps'], instruction: 'Neutral grip, curl without swinging, lower slowly.', progression: '' },
+  { name: 'Incline dumbbell curl', sets: 3, reps: '10', weightKg: 0, restSeconds: 60, equipment: 'bench', bodyParts: ['biceps'], instruction: 'Lie back on incline bench, keep elbows behind body, curl cleanly.', progression: '' },
+  { name: 'Cable curl', sets: 3, reps: '12', weightKg: 0, restSeconds: 45, equipment: 'cable machine', bodyParts: ['biceps'], instruction: 'Keep elbows still, curl handle to chest, squeeze and lower.', progression: '' },
+  { name: 'Pallof press', sets: 3, reps: '12 each side', weightKg: 0, restSeconds: 45, equipment: 'cable machine', bodyParts: ['core'], instruction: 'Stand side-on to cable, press away from chest, resist rotation.', progression: '' },
+  { name: 'Dead bug', sets: 3, reps: '10 each side', weightKg: 0, restSeconds: 45, equipment: 'mat', bodyParts: ['core', 'hip flexors'], instruction: 'Lower opposite arm and leg while keeping lower back gently pressed down.', progression: '' },
+  { name: 'Hanging knee raise', sets: 3, reps: '10', weightKg: 0, restSeconds: 60, equipment: 'pull-up bar', bodyParts: ['core', 'hip flexors'], instruction: 'Hang still, lift knees without swinging, lower under control.', progression: '' },
+  { name: 'Cable woodchop', sets: 3, reps: '10 each side', weightKg: 0, restSeconds: 60, equipment: 'cable machine', bodyParts: ['core', 'shoulders'], instruction: 'Rotate through trunk, move cable across body with control.', progression: '' },
+  { name: 'Farmer carry', sets: 4, reps: '30m', weightKg: 0, restSeconds: 75, equipment: 'dumbbells', bodyParts: ['core', 'back', 'shoulders'], instruction: 'Walk tall with heavy weights, ribs down, no leaning.', progression: '' },
+  { name: 'Sled push', sets: 6, reps: '15m', weightKg: 0, restSeconds: 90, equipment: 'gym', bodyParts: ['quads', 'glutes', 'calves', 'conditioning'], instruction: 'Body angled forward, powerful steps, keep pushing through the floor.', progression: '' },
+  { name: 'Medicine ball slam', sets: 4, reps: '8', weightKg: 0, restSeconds: 60, equipment: 'medicine ball', bodyParts: ['core', 'shoulders', 'conditioning'], instruction: 'Reach tall, slam hard, reset posture before each rep.', progression: '' },
+  { name: 'Kettlebell swing', sets: 4, reps: '15', weightKg: 0, restSeconds: 75, equipment: 'kettlebell', bodyParts: ['glutes', 'hamstrings', 'conditioning'], instruction: 'Hinge, snap hips through, let arms guide rather than lift.', progression: '' },
+  { name: 'Goblet lateral lunge', sets: 3, reps: '8 each side', weightKg: 0, restSeconds: 75, equipment: 'dumbbells', bodyParts: ['adductors', 'glutes', 'quads'], instruction: 'Step wide, sit into one hip, keep the other leg straight and controlled.', progression: '' },
+  { name: 'Cable hip adduction', sets: 3, reps: '12 each side', weightKg: 0, restSeconds: 45, equipment: 'cable machine', bodyParts: ['adductors'], instruction: 'Pull leg across body with control, keep hips square.', progression: '' },
+  { name: 'Cable hip abduction', sets: 3, reps: '12 each side', weightKg: 0, restSeconds: 45, equipment: 'cable machine', bodyParts: ['glutes'], instruction: 'Move leg out to side, pause, return slowly without leaning.', progression: '' },
+];
+
 function allProgramExercises() {
   const seen = new Set<string>();
-  return Object.values(exerciseLibrary).flat().filter((item) => {
+  return [...Object.values(exerciseLibrary).flat(), ...weightExerciseLibrary].filter((item) => {
     if (seen.has(item.name)) return false;
     seen.add(item.name);
     return true;
@@ -534,6 +585,62 @@ function xpForWorkout(duration: number, intensity: string, exercises: unknown[])
   return Math.max(20, base + loadBonus);
 }
 
+const trackedBodyParts = [
+  'chest', 'shoulders', 'biceps', 'triceps', 'back', 'core', 'quads', 'hamstrings', 'glutes', 'calves', 'ankles',
+  'hip flexors', 'adductors', 'conditioning', 'technical',
+];
+
+const fallbackBodyParts: Record<string, string[]> = {
+  running: ['quads', 'hamstrings', 'glutes', 'calves', 'conditioning'],
+  cycling: ['quads', 'glutes', 'calves', 'conditioning'],
+  swimming: ['shoulders', 'back', 'core', 'conditioning'],
+  football: ['quads', 'hamstrings', 'glutes', 'calves', 'ankles', 'conditioning', 'technical'],
+  gym: ['chest', 'shoulders', 'back', 'core', 'quads', 'hamstrings', 'glutes'],
+};
+
+function exerciseBodyParts(exercise: unknown, workoutType: string) {
+  if (exercise && typeof exercise === 'object') {
+    const parts = (exercise as { bodyParts?: unknown }).bodyParts;
+    if (Array.isArray(parts)) return parts.map(String).map((part) => part.trim().toLowerCase()).filter(Boolean);
+    const name = String((exercise as { name?: string }).name || '').toLowerCase();
+    const found = new Set<string>();
+    allProgramExercises().forEach((libraryItem) => {
+      if (name && (name.includes(libraryItem.name.toLowerCase()) || libraryItem.name.toLowerCase().includes(name))) {
+        libraryItem.bodyParts.forEach((part) => found.add(part));
+      }
+    });
+    if (found.size) return [...found];
+  }
+  return fallbackBodyParts[workoutType] || ['conditioning'];
+}
+
+async function bodyPartRecovery(userId: string) {
+  const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  const workouts = await prisma.workout.findMany({ where: { userId, completedAt: { gte: since } }, orderBy: { completedAt: 'desc' }, take: 80 });
+  const loads = Object.fromEntries(trackedBodyParts.map((part) => [part, 0])) as Record<string, number>;
+  workouts.forEach((workout) => {
+    const daysAgo = Math.max(0, (Date.now() - workout.completedAt.getTime()) / 86400000);
+    const freshness = Math.max(0.15, 1 - daysAgo / 14);
+    const exercises = Array.isArray(workout.exercises) && workout.exercises.length ? workout.exercises : [{}];
+    const sessionLoad = Math.max(8, workout.duration * intensityFactor(workout.intensity) * freshness);
+    exercises.forEach((exercise) => {
+      const parts = exerciseBodyParts(exercise, workout.type).filter((part) => trackedBodyParts.includes(part));
+      const share = sessionLoad / Math.max(1, parts.length);
+      parts.forEach((part) => { loads[part] = (loads[part] || 0) + share; });
+    });
+  });
+  const parts = trackedBodyParts.map((part) => {
+    const load = Math.min(100, Math.round(loads[part] || 0));
+    const status = load >= 75 ? 'Recovery' : load >= 45 ? 'Loaded' : load >= 18 ? 'Warm' : 'Fresh';
+    return { part, load, status };
+  });
+  const hottest = [...parts].sort((a, b) => b.load - a.load).slice(0, 3);
+  return {
+    parts,
+    summary: hottest[0]?.load ? `Most loaded: ${hottest.map((item) => `${item.part} ${item.load}%`).join(', ')}.` : 'No body-part load yet. Complete a programmed workout to start the map.',
+  };
+}
+
 async function previousExercise(userId: string, name: string) {
   const workouts = await prisma.workout.findMany({ where: { userId, source: 'program' }, orderBy: { completedAt: 'desc' }, take: 20 });
   for (const workout of workouts) {
@@ -548,7 +655,12 @@ async function buildProgram(userId: string, input: { equipment: string[]; goal: 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { age: true, weight: true } });
   const equipment = new Set(input.equipment);
   const bodyParts = new Set(input.bodyParts || []);
-  const base = [...(exerciseLibrary[input.goal] || exerciseLibrary.ball), ...allProgramExercises()];
+  const seen = new Set<string>();
+  const base = [...(exerciseLibrary[input.goal] || exerciseLibrary.ball), ...allProgramExercises()].filter((item) => {
+    if (seen.has(item.name)) return false;
+    seen.add(item.name);
+    return true;
+  });
   const available = base.filter((item) => item.equipment === 'bodyweight' || item.equipment === 'running shoes' || equipment.has(item.equipment) || equipment.has('gym'));
   const scored = (available.length ? available : base).map((item) => ({
     item,
@@ -569,7 +681,7 @@ async function buildProgram(userId: string, input: { equipment: string[]; goal: 
   }));
   const intensity = input.goal === 'recovery' ? 'low' : input.goal === 'speed' || input.goal === 'strength' ? 'high' : 'medium';
   const type = input.goal === 'ball' ? 'football' : input.goal === 'strength' ? 'gym' : input.type;
-  const recommended = scored.map((entry) => entry.item).slice(0, 18);
+  const recommended = scored.map((entry) => entry.item).slice(0, 80);
   return { type, duration: input.minutes, intensity, targetBodyParts: input.bodyParts, exercises, recommended };
 }
 
@@ -968,6 +1080,15 @@ app.post('/api/xp/award', auth, asyncRoute(async (req, res) => {
 app.get('/api/workout', auth, asyncRoute(async (req, res) => {
   res.json(await prisma.workout.findMany({ where: { userId: authId(req) }, orderBy: { completedAt: 'desc' }, take: 60 }));
 }));
+
+app.delete('/api/workout/:id', auth, asyncRoute(async (req, res) => {
+  const workout = await prisma.workout.findFirstOrThrow({ where: { id: req.params.id, userId: authId(req) } });
+  await prisma.workout.delete({ where: { id: workout.id } });
+  if (workout.xpEarned > 0) await awardXp(authId(req), -workout.xpEarned, 'workout log removed');
+  await calculateReadiness(authId(req));
+  res.status(204).send();
+}));
+
 app.post('/api/workout', auth, asyncRoute(async (req, res) => {
   const body = z.object({
     type: z.enum(['running', 'gym', 'football', 'swimming', 'cycling', 'other']),
@@ -1125,7 +1246,7 @@ app.get('/api/dashboard', auth, asyncRoute(async (req, res) => {
   const monday = new Date();
   monday.setUTCHours(0, 0, 0, 0);
   monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
-  const [user, recentWorkouts, workoutsThisWeek, notifications, readiness, streak, wearable] = await Promise.all([
+  const [user, recentWorkouts, workoutsThisWeek, notifications, readiness, streak, wearable, recoveryMap] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { ...selectUser, playerCard: true, avatarLoadout: true } }),
     prisma.workout.findMany({ where: { userId: authId(req) }, orderBy: { completedAt: 'desc' }, take: 5 }),
     prisma.workout.count({ where: { userId: authId(req), completedAt: { gte: monday } } }),
@@ -1133,8 +1254,9 @@ app.get('/api/dashboard', auth, asyncRoute(async (req, res) => {
     calculateReadiness(authId(req)),
     recentStreak(authId(req)),
     prisma.wearable.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} }),
+    bodyPartRecovery(authId(req)),
   ]);
-  res.json({ user: { ...user, matchReadiness: readiness.score }, recentWorkouts, notifications, stats: { totalXp: user.xp, workoutsThisWeek, streak }, xp: levelState(user.xp), readiness, recommendation: trainingRecommendation(user.playerCard || {}, readiness), wearable: publicWearable(wearable), googleHealthReady: googleHealthConfig().ready, resets: resetTimes() });
+  res.json({ user: { ...user, matchReadiness: readiness.score }, recentWorkouts, notifications, stats: { totalXp: user.xp, workoutsThisWeek, streak }, xp: levelState(user.xp), readiness, recommendation: trainingRecommendation(user.playerCard || {}, readiness), wearable: publicWearable(wearable), googleHealthReady: googleHealthConfig().ready, resets: resetTimes(), recoveryMap });
 }));
 
 app.get('/api/leaderboard', auth, asyncRoute(async (_req, res) => {
@@ -1182,12 +1304,13 @@ app.put('/api/notifications/:id/read', auth, asyncRoute(async (req, res) => {
 app.get('/api/playerCard', auth, asyncRoute(async (req, res) => {
   const card = await prisma.playerCard.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} });
   const user = await prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { username: true, displayName: true, tier: true, avatarId: true, position: true } });
-  const [workouts, tests, loadout] = await Promise.all([
+  const [workouts, tests, loadout, recoveryMap] = await Promise.all([
     prisma.workout.count({ where: { userId: authId(req) } }),
     prisma.fitnessTest.count({ where: { userId: authId(req) } }),
     prisma.avatarLoadout.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} }),
+    bodyPartRecovery(authId(req)),
   ]);
-  res.json({ ...card, user: { ...user, avatarLoadout: loadout }, progression: { workouts, tests, nextFocus: card.overall < 60 ? 'Build a base with football and running sessions.' : 'Use tests to sharpen card stats.' } });
+  res.json({ ...card, user: { ...user, avatarLoadout: loadout }, progression: { workouts, tests, nextFocus: card.overall < 60 ? 'Build a base with football and running sessions.' : 'Use tests to sharpen card stats.', recoveryMap } });
 }));
 app.put('/api/playerCard', auth, asyncRoute(async (req, res) => {
   const body = z.object({ pace: z.number().int().min(1).max(99), shooting: z.number().int().min(1).max(99), passing: z.number().int().min(1).max(99), dribbling: z.number().int().min(1).max(99), defending: z.number().int().min(1).max(99), physical: z.number().int().min(1).max(99) }).partial().parse(req.body);
