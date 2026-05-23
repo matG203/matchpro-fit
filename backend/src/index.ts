@@ -291,23 +291,113 @@ function workoutGains(type: string, duration: number, intensity: string) {
   return byType[type] || byType.other;
 }
 
-function buildProgram(input: { equipment: string[]; goal: string; minutes: number; type: string }) {
+type ProgramExercise = {
+  name: string;
+  sets: number;
+  reps: string;
+  weightKg: number;
+  restSeconds: number;
+  equipment: string;
+  instruction: string;
+  progression: string;
+};
+
+const exerciseLibrary: Record<string, ProgramExercise[]> = {
+  strength: [
+    { name: 'Goblet squat', sets: 4, reps: '8', weightKg: 0, restSeconds: 90, equipment: 'dumbbells', instruction: 'Hold one dumbbell tight to your chest, sit hips down between knees, then drive up through the floor.', progression: '' },
+    { name: 'Romanian deadlift', sets: 4, reps: '8', weightKg: 0, restSeconds: 90, equipment: 'barbell', instruction: 'Soft knees, push hips back, keep the bar close, stand tall by squeezing glutes.', progression: '' },
+    { name: 'Dumbbell bench press', sets: 4, reps: '8', weightKg: 0, restSeconds: 90, equipment: 'bench', instruction: 'Shoulder blades tucked, lower under control, press up without bouncing.', progression: '' },
+    { name: 'Walking lunge', sets: 3, reps: '10 each leg', weightKg: 0, restSeconds: 75, equipment: 'dumbbells', instruction: 'Step long, back knee down, front foot flat, stand through the front leg.', progression: '' },
+    { name: 'Split squat', sets: 3, reps: '10 each leg', weightKg: 0, restSeconds: 75, equipment: 'bodyweight', instruction: 'Back foot planted, drop straight down, keep the front knee tracking over toes.', progression: '' },
+    { name: 'Standing calf raise', sets: 3, reps: '15', weightKg: 0, restSeconds: 45, equipment: 'dumbbells', instruction: 'Rise high onto toes, pause briefly, lower slowly for ankle and sprint stiffness.', progression: '' },
+    { name: 'Plank', sets: 3, reps: '45 seconds', weightKg: 0, restSeconds: 45, equipment: 'bodyweight', instruction: 'Ribs down, glutes tight, keep a straight line from shoulders to ankles.', progression: '' },
+  ],
+  speed: [
+    { name: 'A-skip drill', sets: 3, reps: '20m', weightKg: 0, restSeconds: 45, equipment: 'bodyweight', instruction: 'Pop off the ground, knee up, toe up, stay tall.', progression: '' },
+    { name: 'Acceleration sprint', sets: 6, reps: '20m', weightKg: 0, restSeconds: 90, equipment: 'cones', instruction: 'Lean forward, powerful first three steps, full recovery between reps.', progression: '' },
+    { name: 'Lateral bound', sets: 3, reps: '6 each side', weightKg: 0, restSeconds: 60, equipment: 'bodyweight', instruction: 'Jump sideways, stick the landing, keep knee stable.', progression: '' },
+  ],
+  endurance: [
+    { name: 'Tempo run', sets: 4, reps: '4 minutes', weightKg: 0, restSeconds: 120, equipment: 'running shoes', instruction: 'Run at controlled hard pace, able to speak only short phrases.', progression: '' },
+    { name: 'Recovery jog', sets: 4, reps: '2 minutes', weightKg: 0, restSeconds: 30, equipment: 'running shoes', instruction: 'Keep this genuinely easy so the next tempo block is clean.', progression: '' },
+  ],
+  ball: [
+    { name: 'Wall pass first touch', sets: 4, reps: '60 seconds', weightKg: 0, restSeconds: 30, equipment: 'ball', instruction: 'One touch to set, one touch to pass. Alternate feet every rep.', progression: '' },
+    { name: 'Cone dribble changes', sets: 4, reps: '45 seconds', weightKg: 0, restSeconds: 45, equipment: 'cones', instruction: 'Attack each cone, change direction sharply, keep ball close.', progression: '' },
+    { name: 'Fatigue finishing', sets: 5, reps: '5 shots', weightKg: 0, restSeconds: 60, equipment: 'ball', instruction: 'Short shuttle before each shot, compose yourself, hit the target.', progression: '' },
+  ],
+  recovery: [
+    { name: 'Zone 2 bike or jog', sets: 1, reps: '25 minutes', weightKg: 0, restSeconds: 0, equipment: 'bike', instruction: 'Easy effort, nose-breathable pace, finish feeling better than you started.', progression: '' },
+    { name: 'Hip flexor mobility', sets: 2, reps: '60 seconds each side', weightKg: 0, restSeconds: 20, equipment: 'mat', instruction: 'Squeeze back-leg glute and gently shift hips forward.', progression: '' },
+    { name: 'Ankle rocks', sets: 2, reps: '12 each side', weightKg: 0, restSeconds: 20, equipment: 'bodyweight', instruction: 'Keep heel down and drive knee over toes with control.', progression: '' },
+  ],
+};
+
+function roundLoad(value: number) {
+  return Math.max(0, Math.round(value / 2.5) * 2.5);
+}
+
+function exerciseLoad(exercise: ProgramExercise, weightKg: number, age: number) {
+  const ageFactor = age < 16 ? 0.45 : age < 19 ? 0.65 : age > 45 ? 0.75 : 1;
+  const ratios: Record<string, number> = {
+    'Goblet squat': 0.32,
+    'Romanian deadlift': 0.55,
+    'Dumbbell bench press': 0.22,
+    'Walking lunge': 0.18,
+    'Split squat': 0,
+    'Standing calf raise': 0.22,
+  };
+  return roundLoad((ratios[exercise.name] || 0) * weightKg * ageFactor);
+}
+
+function repsNumber(reps: string) {
+  return Number(reps.match(/\d+/)?.[0] || 1);
+}
+
+function workoutLoad(exercises: unknown[]) {
+  return exercises.reduce<number>((total, item) => {
+    if (!item || typeof item !== 'object') return total;
+    const exercise = item as Partial<ProgramExercise>;
+    return total + Number(exercise.sets || 1) * repsNumber(String(exercise.reps || '1')) * Math.max(1, Number(exercise.weightKg || 1));
+  }, 0);
+}
+
+function xpForWorkout(duration: number, intensity: string, exercises: unknown[]) {
+  const base = Math.round(duration * intensityFactor(intensity));
+  const loadBonus = Math.min(80, Math.round(workoutLoad(exercises) / 120));
+  return Math.max(20, base + loadBonus);
+}
+
+async function previousExercise(userId: string, name: string) {
+  const workouts = await prisma.workout.findMany({ where: { userId, source: 'program' }, orderBy: { completedAt: 'desc' }, take: 20 });
+  for (const workout of workouts) {
+    const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+    const found = exercises.find((item) => item && typeof item === 'object' && (item as { name?: string }).name === name);
+    if (found) return found as Partial<ProgramExercise>;
+  }
+  return null;
+}
+
+async function buildProgram(userId: string, input: { equipment: string[]; goal: string; minutes: number; type: string }) {
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { age: true, weight: true } });
   const equipment = new Set(input.equipment);
-  const hasGym = equipment.has('gym') || equipment.has('barbell') || equipment.has('dumbbells');
-  const exercises = ['Dynamic warm-up and mobility'];
-  if (input.goal === 'speed') exercises.push('Acceleration mechanics', '6 x 20m sprints', 'Walk-back recovery');
-  if (input.goal === 'endurance') exercises.push('Tempo intervals', 'Nasal-breathing recovery jog', 'Cooldown walk');
-  if (input.goal === 'strength') exercises.push(hasGym ? 'Squat or leg press sets' : 'Split squats', hasGym ? 'Romanian deadlifts' : 'Single-leg hip bridges', 'Core anti-rotation');
-  if (input.goal === 'ball') exercises.push('First-touch wall passes', 'Cone dribble changes', 'Finishing or passing under fatigue');
-  if (input.goal === 'recovery') exercises.push('Zone 2 cardio', 'Hip and ankle mobility', 'Breathing reset');
-  if (equipment.has('bands')) exercises.push('Band glute activation');
-  if (equipment.has('cones')) exercises.push('Cone agility pattern');
-  if (equipment.has('ball')) exercises.push('Ball mastery finisher');
-  if (equipment.has('bike')) exercises.push('Bike cooldown spin');
-  exercises.push('Cooldown and stretch');
+  const base = exerciseLibrary[input.goal] || exerciseLibrary.ball;
+  const available = base.filter((item) => item.equipment === 'bodyweight' || equipment.has(item.equipment) || equipment.has('gym'));
+  const selected = (available.length ? available : base).slice(0, input.minutes >= 60 ? 6 : 4);
+  const exercises = await Promise.all(selected.map(async (item) => {
+    const last = await previousExercise(userId, item.name);
+    const baseWeight = exerciseLoad(item, Number(user.weight || 70), Number(user.age || 24));
+    const previousWeight = Number(last?.weightKg || 0);
+    const nextWeight = previousWeight ? previousWeight + (previousWeight >= 40 ? 2.5 : 1) : baseWeight;
+    return {
+      ...item,
+      weightKg: roundLoad(nextWeight),
+      progression: previousWeight ? `Last time was ${previousWeight}kg. Target is a small increase if form stays clean.` : `Starting target based on your profile: age ${user.age || 'unknown'}, weight ${user.weight || 70}kg.`,
+    };
+  }));
   const intensity = input.goal === 'recovery' ? 'low' : input.goal === 'speed' || input.goal === 'strength' ? 'high' : 'medium';
   const type = input.goal === 'ball' ? 'football' : input.goal === 'strength' ? 'gym' : input.type;
-  return { type, duration: input.minutes, intensity, exercises: [...new Set(exercises)] };
+  return { type, duration: input.minutes, intensity, exercises };
 }
 
 function testGains(test: { sprint30m?: number; run5kMinutes?: number; yoyoLevel?: number; plankSeconds?: number; jumpCm?: number }) {
@@ -570,7 +660,7 @@ app.post('/api/workout', auth, asyncRoute(async (req, res) => {
     exercises: z.array(z.union([z.string(), z.object({ name: z.string(), reps: z.string().optional() })])).default([]),
     source: z.enum(['program', 'sport', 'wearable', 'manual']).default('sport'),
   }).parse(req.body);
-  const xpEarned = Math.max(20, Math.round(body.duration * intensityFactor(body.intensity)));
+  const xpEarned = xpForWorkout(body.duration, body.intensity, body.exercises);
   const workout = await prisma.workout.create({ data: { ...body, userId: authId(req), exercises: jsonValue(body.exercises), xpEarned } });
   await awardXp(authId(req), xpEarned, `${body.type} workout`);
   await progressCard(authId(req), workoutGains(body.type, body.duration, body.intensity), `${body.type} training`);
@@ -589,17 +679,27 @@ app.post('/api/program/generate', auth, asyncRoute(async (req, res) => {
     minutes: z.coerce.number().int().min(20).max(120).default(45),
     type: z.enum(['running', 'gym', 'football', 'swimming', 'cycling', 'other']).default('football'),
   }).parse(req.body);
-  res.json({ program: buildProgram(body) });
+  res.json({ program: await buildProgram(authId(req), body) });
 }));
 
 app.post('/api/program/complete', auth, asyncRoute(async (req, res) => {
+  const exerciseSchema = z.object({
+    name: z.string().trim().min(1),
+    sets: z.coerce.number().int().min(1).max(10),
+    reps: z.string().trim().min(1).max(40),
+    weightKg: z.coerce.number().min(0).max(500),
+    restSeconds: z.coerce.number().int().min(0).max(600),
+    equipment: z.string().trim().max(40),
+    instruction: z.string().trim().max(500),
+    progression: z.string().trim().max(500).optional(),
+  });
   const body = z.object({
     type: z.enum(['running', 'gym', 'football', 'swimming', 'cycling', 'other']),
     duration: z.coerce.number().int().min(5).max(360),
     intensity: z.enum(['low', 'medium', 'high']),
-    exercises: z.array(z.string()).min(1),
+    exercises: z.array(exerciseSchema).min(1),
   }).parse(req.body);
-  const xpEarned = Math.max(20, Math.round(body.duration * intensityFactor(body.intensity)));
+  const xpEarned = xpForWorkout(body.duration, body.intensity, body.exercises);
   const workout = await prisma.workout.create({ data: { ...body, source: 'program', userId: authId(req), exercises: jsonValue(body.exercises), xpEarned } });
   await awardXp(authId(req), xpEarned, 'programmed workout');
   const card = await progressCard(authId(req), workoutGains(body.type, body.duration, body.intensity), 'programmed training');

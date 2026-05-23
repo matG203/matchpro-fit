@@ -90,9 +90,16 @@ button:disabled { cursor: wait; opacity: .55; }
 .customizer-controls { display: grid; gap: .9rem; }
 .customizer-controls h3 { font-size: .86rem; margin: 0 0 .45rem; text-transform: capitalize; }
 .choice-row { display: grid; gap: .5rem; grid-template-columns: repeat(auto-fit, minmax(min(8.4rem, 100%), 1fr)); }
+.equipment-grid { grid-template-columns: repeat(auto-fit, minmax(min(7.2rem, 100%), 1fr)); }
 .choice { align-content: space-between; background: #ffffff0c; border: 1px solid #ffffff1b; display: grid; justify-content: stretch; min-height: 4.2rem; padding: .6rem; text-align: left; }
 .choice small { align-items: center; display: inline-flex; gap: .28rem; }
 .choice.selected { background: linear-gradient(135deg, #2563eb, #38bdf8); border-color: #bfdbfe; }
+.exercise-list { display: grid; gap: .9rem; }
+.exercise-card { background: #ffffff0b; border: 1px solid #ffffff14; border-radius: 8px; display: grid; gap: .9rem; grid-template-columns: minmax(0, 1fr) minmax(18rem, .8fr) auto; padding: 1rem; }
+.exercise-card h3 { margin: 0 0 .3rem; }
+.exercise-fields { display: grid; gap: .6rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.exercise-fields label { font-size: .82rem; margin: 0; }
+.exercise-fields input { margin-top: .25rem; min-height: 2.35rem; padding: .45rem .55rem; }
 .connection-pill { background: #ef44441b; border: 1px solid #ef444466; border-radius: 999px; color: #fecaca; font-weight: 800; padding: .42rem .7rem; }
 .connection-pill.online { background: #22c55e1b; border-color: #22c55e66; color: #bbf7d0; }
 .player-figure { --skin: #b97852; --kit: #2563eb; --kit-shadow: #1d4ed8; aspect-ratio: 4 / 5; height: 14.8rem; margin: auto; position: relative; transform-origin: 50% 100%; width: 11.8rem; }
@@ -202,7 +209,12 @@ progress::-webkit-progress-bar { background: #ffffff12; }
 @keyframes float { 50% { transform: translateY(-10px); } } @keyframes pulse { 50% { opacity: .55; } }
 @media (max-width: 860px) {
   .app-shell, .landing-grid, .grid-2, .customizer-grid { grid-template-columns: 1fr; }
+  .exercise-card { grid-template-columns: 1fr; }
+  .exercise-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sidebar { height: auto; padding: .85rem; position: static; }
   .sidebar nav { display: flex; overflow: auto; } .sidebar nav a { flex: 0 0 auto; } .sidebar nav a span { white-space: nowrap; }
   .logout { margin-top: 0; } .profile-chip { display: none; } .pitch-visual { min-height: 22rem; }
+}
+@media (max-width: 560px) {
+  .exercise-fields { grid-template-columns: 1fr; }
 }
