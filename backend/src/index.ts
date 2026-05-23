@@ -333,13 +333,38 @@ function publicWearable<T extends { accessToken?: string | null; refreshToken?: 
   return safe;
 }
 
+function stepMinutes(steps?: number | null) {
+  return Math.min(120, Math.round(Number(steps || 0) / 120));
+}
+
+async function maxStepsForDay(userId: string, date = new Date()) {
+  const parts = ukParts(date);
+  const start = ukCivilToDate(parts.year, parts.month, parts.day);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+  const metrics = await prisma.healthMetric.findMany({ where: { userId, date: { gte: start, lt: end }, steps: { not: null } }, select: { steps: true } });
+  return Math.max(0, ...metrics.map((item) => Number(item.steps || 0)));
+}
+
+async function applyStepTraining(userId: string, steps?: number | null, date = new Date()) {
+  if (!steps) return;
+  const previousMax = await maxStepsForDay(userId, date);
+  const currentMax = Math.max(previousMax, steps);
+  const addedMinutes = Math.max(0, stepMinutes(currentMax) - stepMinutes(previousMax));
+  await applyChallengeProgress(userId, 'steps', currentMax, 'max');
+  if (addedMinutes > 0) await applyChallengeProgress(userId, 'trainingMinutes', addedMinutes);
+  if (previousMax < 8000 && currentMax >= 8000) {
+    await applyChallengeProgress(userId, 'paceTraining', 1);
+    await progressCard(userId, { pace: 1, physical: 1 }, 'daily steps');
+  }
+}
+
 async function applyWearableMetrics(userId: string, metrics: { steps?: number | null; heartRate?: number | null; sleepHours?: number | null }) {
+  await applyStepTraining(userId, metrics.steps);
   await prisma.healthMetric.create({ data: { userId, steps: metrics.steps, heartRate: metrics.heartRate, sleepHours: metrics.sleepHours } });
   await awardXp(userId, 20, 'wearable sync');
   await applyChallengeProgress(userId, 'wearableSync', 1);
-  if (metrics.steps) await applyChallengeProgress(userId, 'steps', metrics.steps, 'max');
   if (metrics.sleepHours) await applyChallengeProgress(userId, 'sleep', metrics.sleepHours, 'max');
-  if (metrics.steps && metrics.steps >= 8000) await progressCard(userId, { pace: 1, physical: 1 }, 'wearable steps');
   const readiness = await calculateReadiness(userId);
   return readiness;
 }
@@ -616,7 +641,10 @@ function exerciseBodyParts(exercise: unknown, workoutType: string) {
 
 async function bodyPartRecovery(userId: string) {
   const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-  const workouts = await prisma.workout.findMany({ where: { userId, completedAt: { gte: since } }, orderBy: { completedAt: 'desc' }, take: 80 });
+  const [workouts, health] = await Promise.all([
+    prisma.workout.findMany({ where: { userId, completedAt: { gte: since } }, orderBy: { completedAt: 'desc' }, take: 80 }),
+    prisma.healthMetric.findMany({ where: { userId, date: { gte: since }, steps: { not: null } }, orderBy: { date: 'desc' }, take: 60 }),
+  ]);
   const loads = Object.fromEntries(trackedBodyParts.map((part) => [part, 0])) as Record<string, number>;
   workouts.forEach((workout) => {
     const daysAgo = Math.max(0, (Date.now() - workout.completedAt.getTime()) / 86400000);
@@ -629,6 +657,10 @@ async function bodyPartRecovery(userId: string) {
       parts.forEach((part) => { loads[part] = (loads[part] || 0) + share; });
     });
   });
+  dailyStepValues(health).forEach((steps) => {
+    const load = Math.min(28, stepMinutes(steps) * 0.22);
+    ['conditioning', 'quads', 'hamstrings', 'glutes', 'calves', 'ankles'].forEach((part) => { loads[part] = (loads[part] || 0) + load; });
+  });
   const parts = trackedBodyParts.map((part) => {
     const load = Math.min(100, Math.round(loads[part] || 0));
     const status = load >= 75 ? 'Recovery' : load >= 45 ? 'Loaded' : load >= 18 ? 'Warm' : 'Fresh';
@@ -637,7 +669,7 @@ async function bodyPartRecovery(userId: string) {
   const hottest = [...parts].sort((a, b) => b.load - a.load).slice(0, 3);
   return {
     parts,
-    summary: hottest[0]?.load ? `Most loaded: ${hottest.map((item) => `${item.part} ${item.load}%`).join(', ')}.` : 'No body-part load yet. Complete a programmed workout to start the map.',
+    summary: hottest[0]?.load ? `Most loaded: ${hottest.map((item) => `${item.part} ${item.load}%`).join(', ')}.` : 'No body-part load yet. Complete a workout or log steps to start the map.',
   };
 }
 
@@ -818,6 +850,16 @@ const campaignExpansion = [
 
 defaultChallenges.push(...campaignExpansion as typeof defaultChallenges);
 
+function dailyStepValues(metrics: Array<{ date: Date; steps: number | null }>) {
+  const days = new Map<string, number>();
+  metrics.forEach((item) => {
+    if (item.steps === null) return;
+    const key = item.date.toISOString().slice(0, 10);
+    days.set(key, Math.max(days.get(key) || 0, Number(item.steps)));
+  });
+  return [...days.values()];
+}
+
 async function calculateReadiness(userId: string) {
   const fourWeeks = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000);
   const twelveWeeks = new Date(Date.now() - 84 * 24 * 60 * 60 * 1000);
@@ -826,18 +868,21 @@ async function calculateReadiness(userId: string) {
     applyCardDecay(userId),
     prisma.workout.findMany({ where: { userId, completedAt: { gte: fourWeeks } } }),
     prisma.workout.findMany({ where: { userId, completedAt: { gte: twelveWeeks } } }),
-    prisma.healthMetric.findMany({ where: { userId }, orderBy: { date: 'desc' }, take: 28 }),
+    prisma.healthMetric.findMany({ where: { userId, date: { gte: twelveWeeks } }, orderBy: { date: 'desc' }, take: 160 }),
   ]);
   const cardStats = cardKeys.map((key) => card[key]);
   const cardScore = clamp(card.overall);
   const weakestStat = Math.min(...cardStats);
   const balanceScore = clamp((weakestStat / 70) * 100);
   const weeklyTrainingMinutes = recentWorkouts.reduce((total, item) => total + item.duration * intensityFactor(item.intensity), 0) / 4;
-  const trainingScore = clamp((weeklyTrainingMinutes / 180) * 100);
+  const recentStepMinutes = dailyStepValues(health.filter((item) => item.date >= fourWeeks)).reduce((sum, steps) => sum + stepMinutes(steps), 0) / 4;
+  const trainingScore = clamp(((weeklyTrainingMinutes + recentStepMinutes) / 180) * 100);
   const longTermMinutes = longWorkouts.reduce((total, item) => total + item.duration * intensityFactor(item.intensity), 0);
-  const baseScore = clamp((longTermMinutes / 2160) * 100);
+  const longTermStepMinutes = dailyStepValues(health).reduce((sum, steps) => sum + stepMinutes(steps), 0);
+  const baseScore = clamp(((longTermMinutes + longTermStepMinutes) / 2160) * 100);
   const avgSleep = health.filter((item) => item.sleepHours !== null).slice(0, 14).reduce((sum, item) => sum + Number(item.sleepHours), 0) / Math.max(1, health.filter((item) => item.sleepHours !== null).slice(0, 14).length);
-  const avgSteps = health.filter((item) => item.steps !== null).slice(0, 14).reduce((sum, item) => sum + Number(item.steps), 0) / Math.max(1, health.filter((item) => item.steps !== null).slice(0, 14).length);
+  const recentSteps = dailyStepValues(health).slice(0, 14);
+  const avgSteps = recentSteps.reduce((sum, steps) => sum + steps, 0) / Math.max(1, recentSteps.length);
   const avgHydration = health.filter((item) => item.hydration !== null).slice(0, 14).reduce((sum, item) => sum + Number(item.hydration), 0) / Math.max(1, health.filter((item) => item.hydration !== null).slice(0, 14).length);
   const recoveryScore = Math.round(clamp(((avgSleep / 8) * 45) + ((avgSteps / 10000) * 35) + ((avgHydration / 2.5) * 20)));
   const weeksSinceStart = Math.max(0, (Date.now() - user.createdAt.getTime()) / (7 * 24 * 60 * 60 * 1000));
@@ -919,13 +964,22 @@ async function checkCampaignSectionReward(userId: string, section: string) {
 }
 
 async function recentStreak(userId: string) {
-  const workouts = await prisma.workout.findMany({
-    where: { userId },
-    select: { completedAt: true },
-    orderBy: { completedAt: 'desc' },
-    take: 60,
-  });
+  const [workouts, stepDays] = await Promise.all([
+    prisma.workout.findMany({
+      where: { userId },
+      select: { completedAt: true },
+      orderBy: { completedAt: 'desc' },
+      take: 60,
+    }),
+    prisma.healthMetric.findMany({
+      where: { userId, steps: { gt: 0 } },
+      select: { date: true },
+      orderBy: { date: 'desc' },
+      take: 60,
+    }),
+  ]);
   const days = new Set(workouts.map((item) => item.completedAt.toISOString().slice(0, 10)));
+  stepDays.forEach((item) => days.add(item.date.toISOString().slice(0, 10)));
   let streak = 0;
   const cursor = new Date();
   while (days.has(cursor.toISOString().slice(0, 10))) {
@@ -1167,6 +1221,8 @@ app.post('/api/health', auth, asyncRoute(async (req, res) => {
     bodyFat: z.coerce.number().min(1).max(70).optional(),
     hydration: z.coerce.number().min(0).max(20).optional(),
   }).parse(req.body);
+  await applyStepTraining(authId(req), body.steps, body.date || new Date());
+  if (body.sleepHours) await applyChallengeProgress(authId(req), 'sleep', body.sleepHours, 'max');
   const metric = await prisma.healthMetric.create({ data: { ...body, userId: authId(req) } });
   const readiness = await calculateReadiness(authId(req));
   if (readiness.score >= 70) await progressCard(authId(req), { physical: 1 }, 'recovery consistency');
@@ -1246,7 +1302,7 @@ app.get('/api/dashboard', auth, asyncRoute(async (req, res) => {
   const monday = new Date();
   monday.setUTCHours(0, 0, 0, 0);
   monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
-  const [user, recentWorkouts, workoutsThisWeek, notifications, readiness, streak, wearable, recoveryMap] = await Promise.all([
+  const [user, recentWorkouts, workoutsThisWeek, notifications, readiness, streak, wearable, recoveryMap, todaySteps] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { ...selectUser, playerCard: true, avatarLoadout: true } }),
     prisma.workout.findMany({ where: { userId: authId(req) }, orderBy: { completedAt: 'desc' }, take: 5 }),
     prisma.workout.count({ where: { userId: authId(req), completedAt: { gte: monday } } }),
@@ -1255,8 +1311,9 @@ app.get('/api/dashboard', auth, asyncRoute(async (req, res) => {
     recentStreak(authId(req)),
     prisma.wearable.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} }),
     bodyPartRecovery(authId(req)),
+    maxStepsForDay(authId(req)),
   ]);
-  res.json({ user: { ...user, matchReadiness: readiness.score }, recentWorkouts, notifications, stats: { totalXp: user.xp, workoutsThisWeek, streak }, xp: levelState(user.xp), readiness, recommendation: trainingRecommendation(user.playerCard || {}, readiness), wearable: publicWearable(wearable), googleHealthReady: googleHealthConfig().ready, resets: resetTimes(), recoveryMap });
+  res.json({ user: { ...user, matchReadiness: readiness.score }, recentWorkouts, notifications, stats: { totalXp: user.xp, workoutsThisWeek, streak, todaySteps, stepMinutes: stepMinutes(todaySteps) }, xp: levelState(user.xp), readiness, recommendation: trainingRecommendation(user.playerCard || {}, readiness), wearable: publicWearable(wearable), googleHealthReady: googleHealthConfig().ready, resets: resetTimes(), recoveryMap });
 }));
 
 app.get('/api/leaderboard', auth, asyncRoute(async (_req, res) => {
