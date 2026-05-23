@@ -113,7 +113,12 @@ const defaultChallenges = [
   { title: 'Weekly Training Block', description: 'Complete four programmed workouts or sport sessions this week.', type: 'programWorkout', period: 'weekly', target: 4, xpReward: 320, tier: 'Silver' },
   { title: 'Weekly Match Engine', description: 'Complete 180 verified training minutes this week.', type: 'trainingMinutes', period: 'weekly', target: 180, xpReward: 360, tier: 'Silver' },
   { title: 'Weekly Test Marker', description: 'Log one fitness test block this week.', type: 'tests', period: 'weekly', target: 1, xpReward: 260, tier: 'Gold' },
-  { title: 'Weekly Readiness Lift', description: 'Reach a 65% long-term match readiness score this week.', type: 'readiness', period: 'weekly', target: 65, xpReward: 420, tier: 'Gold' },
+  { title: 'Campaign Kickoff', description: 'Complete your first programmed workout.', type: 'programWorkout', period: 'campaign', target: 1, xpReward: 180, tier: 'Bronze' },
+  { title: 'Campaign Engine Builder', description: 'Complete 600 verified training minutes.', type: 'trainingMinutes', period: 'campaign', target: 600, xpReward: 650, tier: 'Silver' },
+  { title: 'Campaign Recovery Habit', description: 'Sync wearable recovery data 10 times.', type: 'wearableSync', period: 'campaign', target: 10, xpReward: 500, tier: 'Silver' },
+  { title: 'Campaign Testing Baseline', description: 'Log three fitness test blocks.', type: 'tests', period: 'campaign', target: 3, xpReward: 700, tier: 'Gold' },
+  { title: 'Campaign Speed Base', description: 'Complete five pace-focused running or sprint sessions.', type: 'paceTraining', period: 'campaign', target: 5, xpReward: 620, tier: 'Gold' },
+  { title: 'Campaign Strength Base', description: 'Complete five gym or strength sessions.', type: 'physicalTraining', period: 'campaign', target: 5, xpReward: 620, tier: 'Gold' },
 ];
 
 type SafeUser = Omit<User, 'passwordHash'>;
@@ -234,13 +239,38 @@ function todayDateString() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+function ukParts(at = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false, weekday: 'short' }).formatToParts(at);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value || '0';
+  return { year: Number(value('year')), month: Number(value('month')), day: Number(value('day')), hour: Number(value('hour')), minute: Number(value('minute')), second: Number(value('second')), weekday: value('weekday') };
+}
+
+function ukCivilToDate(year: number, month: number, day: number, hour = 0, minute = 0, second = 0) {
+  const guess = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  const parts = ukParts(guess);
+  const drift = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second) - Date.UTC(year, month - 1, day, hour, minute, second);
+  return new Date(guess.getTime() - drift);
+}
+
 function startOfPeriod(period: string, at = new Date()) {
-  const start = new Date(at);
-  start.setHours(0, 0, 0, 0);
+  if (period === 'campaign') return new Date('2026-01-01T00:00:00.000Z');
+  const parts = ukParts(at);
+  const start = ukCivilToDate(parts.year, parts.month, parts.day);
   if (period === 'weekly') {
-    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    start.setUTCDate(start.getUTCDate() - weekdays.indexOf(parts.weekday));
   }
   return start;
+}
+
+function resetTimes() {
+  const today = startOfPeriod('daily');
+  const nextDaily = new Date(today);
+  nextDaily.setUTCDate(nextDaily.getUTCDate() + 1);
+  const week = startOfPeriod('weekly');
+  const nextWeekly = new Date(week);
+  nextWeekly.setUTCDate(nextWeekly.getUTCDate() + 7);
+  return { daily: nextDaily, weekly: nextWeekly };
 }
 
 function publicWearable<T extends { accessToken?: string | null; refreshToken?: string | null }>(wearable: T) {
@@ -254,12 +284,20 @@ async function applyWearableMetrics(userId: string, metrics: { steps?: number | 
   await applyChallengeProgress(userId, 'wearableSync', 1);
   if (metrics.steps) await applyChallengeProgress(userId, 'steps', metrics.steps, 'max');
   if (metrics.sleepHours) await applyChallengeProgress(userId, 'sleep', metrics.sleepHours, 'max');
+  if (metrics.steps && metrics.steps >= 8000) await progressCard(userId, { pace: 1, physical: 1 }, 'wearable steps');
   const readiness = await calculateReadiness(userId);
-  await applyChallengeProgress(userId, 'readiness', readiness.score, 'max');
   return readiness;
 }
 
 const cardKeys = ['pace', 'shooting', 'passing', 'dribbling', 'defending', 'physical'] as const;
+const trainedAtKey = {
+  pace: 'paceTrainedAt',
+  shooting: 'shootingTrainedAt',
+  passing: 'passingTrainedAt',
+  dribbling: 'dribblingTrainedAt',
+  defending: 'defendingTrainedAt',
+  physical: 'physicalTrainedAt',
+} as const;
 
 function overallOf(stats: Record<(typeof cardKeys)[number], number>) {
   return Math.round(cardKeys.reduce((sum, key) => sum + stats[key], 0) / cardKeys.length);
@@ -270,12 +308,34 @@ function clampStat(value: number) {
 }
 
 async function progressCard(userId: string, gains: Partial<Record<(typeof cardKeys)[number], number>>, reason: string) {
-  const card = await prisma.playerCard.upsert({ where: { userId }, create: { userId }, update: {} });
+  const card = await applyCardDecay(userId);
   const stats = Object.fromEntries(cardKeys.map((key) => [key, clampStat(card[key] + (gains[key] || 0))])) as Record<(typeof cardKeys)[number], number>;
-  const next = await prisma.playerCard.update({ where: { userId }, data: { ...stats, overall: overallOf(stats) } });
+  const now = new Date();
+  const trainedDates = Object.fromEntries(cardKeys.filter((key) => gains[key]).map((key) => [trainedAtKey[key], now]));
+  const next = await prisma.playerCard.update({ where: { userId }, data: { ...stats, ...trainedDates, overall: overallOf(stats) } });
   const boosts = Object.entries(gains).filter(([, value]) => value).map(([key, value]) => `${key} +${value}`).join(', ');
   if (boosts) await prisma.notification.create({ data: { userId, type: 'card', message: `${reason} improved your card: ${boosts}.` } });
   return next;
+}
+
+async function applyCardDecay(userId: string) {
+  const card = await prisma.playerCard.upsert({ where: { userId }, create: { userId }, update: {} });
+  const nextStats: Partial<Record<(typeof cardKeys)[number], number>> = {};
+  const now = Date.now();
+  for (const key of cardKeys) {
+    const last = card[trainedAtKey[key]] || card.updatedAt;
+    const quietDays = Math.max(0, (now - last.getTime()) / 86_400_000 - 14);
+    if (quietDays <= 0 || card[key] <= 45) {
+      nextStats[key] = card[key];
+      continue;
+    }
+    const weeks = quietDays / 7;
+    const drop = Math.floor((card[key] - 45) * (1 - Math.exp(-0.16 * weeks)));
+    nextStats[key] = clampStat(Math.max(45, card[key] - drop));
+  }
+  const changed = cardKeys.some((key) => nextStats[key] !== card[key]);
+  if (!changed) return card;
+  return prisma.playerCard.update({ where: { userId }, data: { ...nextStats, overall: overallOf(nextStats as Record<(typeof cardKeys)[number], number>) } });
 }
 
 function workoutGains(type: string, duration: number, intensity: string) {
@@ -289,6 +349,19 @@ function workoutGains(type: string, duration: number, intensity: string) {
     other: { physical: gain },
   };
   return byType[type] || byType.other;
+}
+
+function exerciseGains(type: string, exercises: unknown[], duration: number, intensity: string) {
+  const gains = workoutGains(type, duration, intensity);
+  const names = exercises.map((item) => typeof item === 'string' ? item : item && typeof item === 'object' ? String((item as { name?: string }).name || '') : '').join(' ').toLowerCase();
+  const add = (key: (typeof cardKeys)[number], amount = 1) => { gains[key] = (gains[key] || 0) + amount; };
+  if (/sprint|acceleration|tempo|run|a-skip|bound/.test(names) || type === 'running') add('pace');
+  if (/wall pass|passing|first touch|ball/.test(names) || type === 'football') add('passing');
+  if (/dribble|agility|cone/.test(names) || type === 'football') add('dribbling');
+  if (/shot|finish|shoot/.test(names)) add('shooting');
+  if (/squat|deadlift|lunge|bench|press|row|pull|plank|calf|gym|strength/.test(names) || type === 'gym') add('physical');
+  if (/lateral|split squat|core|plank|defend|shield/.test(names) || type === 'gym') add('defending');
+  return gains;
 }
 
 type ProgramExercise = {
@@ -433,7 +506,7 @@ async function calculateReadiness(userId: string) {
   const twelveWeeks = new Date(Date.now() - 84 * 24 * 60 * 60 * 1000);
   const [user, card, recentWorkouts, longWorkouts, health] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { createdAt: true } }),
-    prisma.playerCard.upsert({ where: { userId }, create: { userId }, update: {} }),
+    applyCardDecay(userId),
     prisma.workout.findMany({ where: { userId, completedAt: { gte: fourWeeks } } }),
     prisma.workout.findMany({ where: { userId, completedAt: { gte: twelveWeeks } } }),
     prisma.healthMetric.findMany({ where: { userId }, orderBy: { date: 'desc' }, take: 28 }),
@@ -494,6 +567,7 @@ async function applyChallengeProgress(userId: string, type: string, value: numbe
       OR: [
         { challenge: { period: 'daily' }, periodStart: startOfPeriod('daily') },
         { challenge: { period: 'weekly' }, periodStart: startOfPeriod('weekly') },
+        { challenge: { period: 'campaign' }, periodStart: startOfPeriod('campaign') },
       ],
     },
     include: { challenge: true },
@@ -564,6 +638,11 @@ app.post('/api/auth/login', asyncRoute(async (req, res) => {
   if (!user || !(await bcrypt.compare(body.password, user.passwordHash))) return res.status(401).json({ error: 'Incorrect login details.' });
   const { passwordHash: _passwordHash, ...safeUser } = user;
   return res.json({ token: jwt.sign({ userId: user.id }, jwtSecret(), { expiresIn: '14d' }), user: safeUser });
+}));
+
+app.post('/api/auth/forgot-password', asyncRoute(async (req, res) => {
+  z.object({ email: z.string().trim().email() }).parse(req.body);
+  res.json({ message: 'If that account exists, password reset instructions will be sent when email delivery is enabled.' });
 }));
 
 app.get('/api/auth/me', auth, asyncRoute(async (req, res) => {
@@ -663,10 +742,12 @@ app.post('/api/workout', auth, asyncRoute(async (req, res) => {
   const xpEarned = xpForWorkout(body.duration, body.intensity, body.exercises);
   const workout = await prisma.workout.create({ data: { ...body, userId: authId(req), exercises: jsonValue(body.exercises), xpEarned } });
   await awardXp(authId(req), xpEarned, `${body.type} workout`);
-  await progressCard(authId(req), workoutGains(body.type, body.duration, body.intensity), `${body.type} training`);
+  await progressCard(authId(req), exerciseGains(body.type, body.exercises, body.duration, body.intensity), `${body.type} training`);
   if (body.source !== 'manual') {
     await applyChallengeProgress(authId(req), 'programWorkout', 1);
     await applyChallengeProgress(authId(req), 'trainingMinutes', body.duration);
+    if (['running', 'football', 'cycling'].includes(body.type)) await applyChallengeProgress(authId(req), 'paceTraining', 1);
+    if (body.type === 'gym') await applyChallengeProgress(authId(req), 'physicalTraining', 1);
   }
   await calculateReadiness(authId(req));
   res.status(201).json(workout);
@@ -702,11 +783,12 @@ app.post('/api/program/complete', auth, asyncRoute(async (req, res) => {
   const xpEarned = xpForWorkout(body.duration, body.intensity, body.exercises);
   const workout = await prisma.workout.create({ data: { ...body, source: 'program', userId: authId(req), exercises: jsonValue(body.exercises), xpEarned } });
   await awardXp(authId(req), xpEarned, 'programmed workout');
-  const card = await progressCard(authId(req), workoutGains(body.type, body.duration, body.intensity), 'programmed training');
+  const card = await progressCard(authId(req), exerciseGains(body.type, body.exercises, body.duration, body.intensity), 'programmed training');
   await applyChallengeProgress(authId(req), 'programWorkout', 1);
   await applyChallengeProgress(authId(req), 'trainingMinutes', body.duration);
+  if (['running', 'football', 'cycling'].includes(body.type)) await applyChallengeProgress(authId(req), 'paceTraining', 1);
+  if (body.type === 'gym') await applyChallengeProgress(authId(req), 'physicalTraining', 1);
   const readiness = await calculateReadiness(authId(req));
-  await applyChallengeProgress(authId(req), 'readiness', readiness.score, 'max');
   res.status(201).json({ workout, card, readiness });
 }));
 
@@ -725,24 +807,25 @@ app.post('/api/health', auth, asyncRoute(async (req, res) => {
   const metric = await prisma.healthMetric.create({ data: { ...body, userId: authId(req) } });
   const readiness = await calculateReadiness(authId(req));
   if (readiness.score >= 70) await progressCard(authId(req), { physical: 1 }, 'recovery consistency');
-  await applyChallengeProgress(authId(req), 'readiness', readiness.score, 'max');
   res.status(201).json({ metric, readiness });
 }));
 
 app.get('/api/challenges', auth, asyncRoute(async (req, res) => {
   await ensureChallenges(authId(req));
-  res.json(await prisma.userChallenge.findMany({
+  const items = await prisma.userChallenge.findMany({
     where: {
       userId: authId(req),
       challenge: { isActive: true },
       OR: [
         { challenge: { period: 'daily' }, periodStart: startOfPeriod('daily') },
         { challenge: { period: 'weekly' }, periodStart: startOfPeriod('weekly') },
+        { challenge: { period: 'campaign' }, periodStart: startOfPeriod('campaign') },
       ],
     },
     include: { challenge: true },
     orderBy: [{ challenge: { period: 'asc' } }, { createdAt: 'asc' }],
-  }));
+  });
+  res.json({ items, resets: resetTimes() });
 }));
 app.post('/api/challenges/:id/progress', auth, asyncRoute(async (req, res) => {
   res.status(403).json({ error: 'Objectives only progress from verified training, tests, and wearable syncs.' });
@@ -771,22 +854,22 @@ app.post('/api/tests', auth, asyncRoute(async (req, res) => {
     applyChallengeProgress(authId(req), 'tests', 1),
   ]);
   const readiness = await calculateReadiness(authId(req));
-  await applyChallengeProgress(authId(req), 'readiness', readiness.score, 'max');
   res.status(201).json({ test, xp, card, readiness });
 }));
 app.get('/api/dashboard', auth, asyncRoute(async (req, res) => {
   const monday = new Date();
   monday.setUTCHours(0, 0, 0, 0);
   monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
-  const [user, recentWorkouts, workoutsThisWeek, notifications, readiness, streak] = await Promise.all([
+  const [user, recentWorkouts, workoutsThisWeek, notifications, readiness, streak, wearable] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { ...selectUser, playerCard: true, avatarLoadout: true } }),
     prisma.workout.findMany({ where: { userId: authId(req) }, orderBy: { completedAt: 'desc' }, take: 5 }),
     prisma.workout.count({ where: { userId: authId(req), completedAt: { gte: monday } } }),
     prisma.notification.findMany({ where: { userId: authId(req) }, orderBy: { createdAt: 'desc' }, take: 6 }),
     calculateReadiness(authId(req)),
     recentStreak(authId(req)),
+    prisma.wearable.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} }),
   ]);
-  res.json({ user: { ...user, matchReadiness: readiness.score }, recentWorkouts, notifications, stats: { totalXp: user.xp, workoutsThisWeek, streak }, xp: levelState(user.xp), readiness });
+  res.json({ user: { ...user, matchReadiness: readiness.score }, recentWorkouts, notifications, stats: { totalXp: user.xp, workoutsThisWeek, streak }, xp: levelState(user.xp), readiness, wearable: publicWearable(wearable), googleHealthReady: googleHealthConfig().ready, resets: resetTimes() });
 }));
 
 app.get('/api/leaderboard', auth, asyncRoute(async (_req, res) => {

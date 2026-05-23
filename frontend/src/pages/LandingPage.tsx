@@ -10,7 +10,7 @@ export default function LandingPage() {
           <span className="eyebrow">Football fitness, levelled up</span>
           <h1>MatchFit Pro</h1>
           <p>Track the work behind your football, turn training into XP, build a player card, and chase the next tier with your mates.</p>
-          <div className="actions"><Link className="button" to="/register">Create account <ArrowRight size={18} /></Link><Link className="button secondary" to="/login">Sign in</Link></div>
+          <div className="actions"><Link className="button" to="/register">Create Account <ArrowRight size={18} /></Link><Link className="button secondary" to="/login">Sign In</Link></div>
           <div className="stat-grid" style={{ marginTop: '1.3rem' }}>
             <div className="stat"><Flame size={18} /><strong>XP</strong><small>Workouts and recovery logs</small></div>
             <div className="stat"><Trophy size={18} /><strong>Tiers</strong><small>Bronze to Elite</small></div>

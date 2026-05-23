@@ -7,6 +7,7 @@ import AvatarPage from './pages/AvatarPage';
 import ChallengesPage from './pages/ChallengesPage';
 import DashboardPage from './pages/DashboardPage';
 import FriendsPage from './pages/FriendsPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import HealthPage from './pages/HealthPage';
 import LandingPage from './pages/LandingPage';
 import LeaderboardPage from './pages/LeaderboardPage';
@@ -46,6 +47,7 @@ export default function App() {
       <AppErrorBoundary><Routes>
         <Route path="/" element={token ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/onboarding" element={<OnboardingGate />} />
         <Route element={<SessionGate />}>

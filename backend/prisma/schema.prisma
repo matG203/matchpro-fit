@@ -126,6 +126,12 @@ model PlayerCard {
   defending Int      @default(50)
   physical  Int      @default(50)
   overall   Int      @default(50)
+  paceTrainedAt DateTime?
+  shootingTrainedAt DateTime?
+  passingTrainedAt DateTime?
+  dribblingTrainedAt DateTime?
+  defendingTrainedAt DateTime?
+  physicalTrainedAt DateTime?
   updatedAt DateTime @updatedAt
 }
 

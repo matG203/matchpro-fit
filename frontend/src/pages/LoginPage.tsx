@@ -17,12 +17,13 @@ export default function LoginPage() {
   }
   return (
     <main className="auth-page"><form className="auth-card stack" onSubmit={submit}>
-      <Link className="brand" to="/">MatchFit <b>Pro</b></Link><h1>Sign in</h1>
+      <Link className="brand" to="/">MatchFit <b>Pro</b></Link><h1>Sign In</h1>
       {error && <p className="error">{error}</p>}
-      <div><label>Email or username</label><input required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+      <div><label>Email or Username</label><input required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
       <div><label>Password</label><input type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
-      <button disabled={busy}>{busy ? 'Signing in...' : 'Sign in'}</button>
-      <p className="muted">New to MatchFit? <Link to="/register">Create account</Link></p>
+      <button disabled={busy}>{busy ? 'Signing In...' : 'Sign In'}</button>
+      <p className="muted"><Link to="/forgot-password">Forgot password?</Link></p>
+      <p className="muted">New to MatchFit? <Link to="/register">Create Account</Link></p>
     </form></main>
   );
 }
