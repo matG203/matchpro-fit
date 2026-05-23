@@ -16,6 +16,7 @@ export type MatchUser = {
   tier: string;
   avatarId?: string | null;
   matchReadiness: number;
+  isAdmin?: boolean;
 };
 
 type AuthState = {
@@ -47,12 +48,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { data } = await api.post('/auth/login', { email, password });
     saveToken(data.token);
     const me = await api.get('/auth/me', { headers: { Authorization: `Bearer ${data.token}` } });
-    set({ token: data.token, user: me.data.user, onboardingComplete: me.data.onboardingComplete, checking: false });
+      set({ token: data.token, user: { ...me.data.user, isAdmin: me.data.isAdmin }, onboardingComplete: me.data.onboardingComplete, checking: false });
   },
   async hydrate() {
     try {
       const { data } = await api.get('/auth/me');
-      set({ user: data.user, onboardingComplete: data.onboardingComplete, checking: false });
+      set({ user: { ...data.user, isAdmin: data.isAdmin }, onboardingComplete: data.onboardingComplete, checking: false });
     } catch {
       localStorage.removeItem('matchfit-token');
       set({ token: null, user: null, checking: false, onboardingComplete: false });

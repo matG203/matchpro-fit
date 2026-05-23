@@ -201,6 +201,19 @@ function authId(req: Request) {
   return (req as AuthRequest).userId;
 }
 
+function adminEmails() {
+  return (process.env.ADMIN_EMAILS || 'matgraham203@gmail.com').split(',').map((email) => email.trim().toLowerCase()).filter(Boolean);
+}
+
+async function requireAdmin(req: Request) {
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { email: true } });
+  if (!adminEmails().includes(user.email.toLowerCase())) {
+    const error = new Error('Admin access only.');
+    (error as Error & { status?: number }).status = 403;
+    throw error;
+  }
+}
+
 function jsonValue(value: unknown): Prisma.InputJsonValue {
   return (Array.isArray(value) ? value : []) as Prisma.InputJsonValue;
 }
@@ -577,6 +590,33 @@ function testBenchmarks(test: Record<string, number | string | Date | undefined>
   return { pace, shooting, passing, dribbling, defending, physical };
 }
 
+function trainingRecommendation(card: Partial<Record<(typeof cardKeys)[number], number>>, readiness: { factors?: Record<string, number> }) {
+  const statLabels: Record<string, string> = {
+    pace: 'pace',
+    shooting: 'shooting',
+    passing: 'passing',
+    dribbling: 'dribbling',
+    defending: 'defending',
+    physical: 'physical',
+  };
+  const weakest = cardKeys.map((key) => ({ key, value: Number(card[key] || 50) })).sort((a, b) => a.value - b.value)[0];
+  if (readiness.factors?.recovery !== undefined && readiness.factors.recovery < 55) {
+    return { title: 'Prioritise Recovery', body: 'Sync your wearable, protect sleep, and choose a low-intensity recovery session before pushing hard again.', action: 'Sync wearable or programme recovery' };
+  }
+  if (readiness.factors?.training !== undefined && readiness.factors.training < 55) {
+    return { title: 'Build The Training Week', body: 'Your recent training load is light. A programmed football, running, or gym session will move objectives and readiness.', action: 'Open the programmer' };
+  }
+  const mapping: Record<string, string> = {
+    pace: 'Choose a speed or running session. Sprints and tempo work are the cleanest way to raise pace.',
+    shooting: 'Choose football finishing work or log shooting tests. Fatigue finishing is the best next session.',
+    passing: 'Choose technical ball work and passing tests. Wall-pass blocks will help passing.',
+    dribbling: 'Choose cone dribble changes or agility tests. Keep the ball work sharp and repeatable.',
+    defending: 'Choose strength, agility, and core work. Split squats, lateral bounds, and shuttle tests support defending.',
+    physical: 'Choose a strength session. Squat, hinge, lunge, press, and core volume will move physical.',
+  };
+  return { title: `Train ${statLabels[weakest.key]}`, body: mapping[weakest.key], action: 'Open the programmer' };
+}
+
 async function awardXp(userId: string, amount: number, reason: string) {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   const xp = Math.max(0, user.xp + Math.round(amount));
@@ -763,12 +803,21 @@ app.post('/api/auth/login', asyncRoute(async (req, res) => {
 
 app.post('/api/auth/forgot-password', asyncRoute(async (req, res) => {
   z.object({ email: z.string().trim().email() }).parse(req.body);
-  res.json({ message: 'If that account exists, password reset instructions will be sent when email delivery is enabled.' });
+  res.json({ message: 'Message Mat and he can reset your password manually.' });
+}));
+
+app.post('/api/admin/reset-password', auth, asyncRoute(async (req, res) => {
+  await requireAdmin(req);
+  const body = z.object({ login: z.string().trim().min(3), password: z.string().min(8).max(120) }).parse(req.body);
+  const user = await prisma.user.findFirst({ where: { OR: [{ email: body.login.toLowerCase() }, { username: body.login.toLowerCase() }] } });
+  if (!user) return res.status(404).json({ error: 'No user found for that email or username.' });
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(body.password, 12) } });
+  res.json({ message: `Password reset for ${user.username}.` });
 }));
 
 app.get('/api/auth/me', auth, asyncRoute(async (req, res) => {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: selectUser });
-  res.json({ user, onboardingComplete: Boolean(user.position && user.age && user.height && user.weight) });
+  res.json({ user, onboardingComplete: Boolean(user.position && user.age && user.height && user.weight), isAdmin: adminEmails().includes(user.email.toLowerCase()) });
 }));
 
 app.get('/api/profile', auth, asyncRoute(async (req, res) => {
@@ -1021,7 +1070,7 @@ app.get('/api/dashboard', auth, asyncRoute(async (req, res) => {
     recentStreak(authId(req)),
     prisma.wearable.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} }),
   ]);
-  res.json({ user: { ...user, matchReadiness: readiness.score }, recentWorkouts, notifications, stats: { totalXp: user.xp, workoutsThisWeek, streak }, xp: levelState(user.xp), readiness, wearable: publicWearable(wearable), googleHealthReady: googleHealthConfig().ready, resets: resetTimes() });
+  res.json({ user: { ...user, matchReadiness: readiness.score }, recentWorkouts, notifications, stats: { totalXp: user.xp, workoutsThisWeek, streak }, xp: levelState(user.xp), readiness, recommendation: trainingRecommendation(user.playerCard || {}, readiness), wearable: publicWearable(wearable), googleHealthReady: googleHealthConfig().ready, resets: resetTimes() });
 }));
 
 app.get('/api/leaderboard', auth, asyncRoute(async (_req, res) => {
@@ -1220,6 +1269,17 @@ app.get('/api/settings', auth, asyncRoute(async (req, res) => res.json(await pri
 app.put('/api/settings', auth, asyncRoute(async (req, res) => {
   const body = z.object({ notifications: z.boolean().optional(), publicProfile: z.boolean().optional(), weeklyGoal: z.coerce.number().int().min(1).max(14).optional(), theme: z.enum(['dark', 'light']).optional(), units: z.enum(['metric', 'imperial']).optional() }).parse(req.body);
   res.json(await prisma.userSettings.upsert({ where: { userId: authId(req) }, create: { userId: authId(req), ...body }, update: body }));
+}));
+
+app.post('/api/feedback', auth, asyncRoute(async (req, res) => {
+  const body = z.object({ category: z.enum(['bug', 'idea', 'account', 'other']).default('bug'), message: z.string().trim().min(5).max(1000) }).parse(req.body);
+  const report = await prisma.bugReport.create({ data: { userId: authId(req), ...body } });
+  res.status(201).json({ report, message: 'Report sent.' });
+}));
+
+app.get('/api/admin/reports', auth, asyncRoute(async (req, res) => {
+  await requireAdmin(req);
+  res.json(await prisma.bugReport.findMany({ orderBy: { createdAt: 'desc' }, take: 50, include: { user: { select: { username: true, email: true } } } }));
 }));
 
 app.use((_req, res) => res.status(404).json({ error: 'Route not found.' }));

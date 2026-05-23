@@ -4,6 +4,7 @@ import AppErrorBoundary from './components/AppErrorBoundary';
 import Layout from './components/layout/Layout';
 import { useAuthStore } from './store/authStore';
 import AvatarPage from './pages/AvatarPage';
+import AdminPage from './pages/AdminPage';
 import ChallengesPage from './pages/ChallengesPage';
 import CampaignPage from './pages/CampaignPage';
 import DashboardPage from './pages/DashboardPage';
@@ -67,6 +68,7 @@ export default function App() {
             <Route path="/wearables" element={<WearablesPage />} />
             <Route path="/tests" element={<TestsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/admin" element={<AdminPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

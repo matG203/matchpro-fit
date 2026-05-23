@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Activity, Award, CalendarDays, Dumbbell, Flag, HeartPulse, Home, LogOut, Medal, Settings, Shirt, Users, Watch, Zap } from 'lucide-react';
+import { Activity, Award, CalendarDays, Dumbbell, Flag, HeartPulse, Home, LogOut, Medal, Shield, Settings, Shirt, Users, Watch, Zap } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { AvatarMark, Tier } from '../ui';
 import api from '../../lib/api';
@@ -32,7 +32,7 @@ export default function Layout() {
       <aside className="sidebar">
         <NavLink to="/dashboard" className="brand">MatchFit <b>Pro</b></NavLink>
         <div className="profile-chip"><AvatarMark id={user?.avatarId} /><div><strong>{user?.displayName || user?.username}</strong><Tier value={user?.tier || 'Bronze'} /></div></div>
-        <nav>{links.map(([to, label, Icon]) => <NavLink key={to} to={to}><Icon size={18} /><span>{label}</span></NavLink>)}</nav>
+        <nav>{links.map(([to, label, Icon]) => <NavLink key={to} to={to}><Icon size={18} /><span>{label}</span></NavLink>)}{user?.isAdmin && <NavLink to="/admin"><Shield size={18} /><span>Admin</span></NavLink>}</nav>
         <button className="ghost logout" onClick={logout}><LogOut size={18} /> Sign out</button>
       </aside>
       <main className="main"><Outlet /></main>

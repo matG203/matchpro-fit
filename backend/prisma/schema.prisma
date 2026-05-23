@@ -39,6 +39,7 @@ model User {
   fitnessTests   FitnessTest[]
   avatarLoadout  AvatarLoadout?
   cosmeticUnlocks UserCosmeticUnlock[]
+  bugReports    BugReport[]
 }
 
 model Workout {
@@ -237,4 +238,14 @@ model UserCosmeticUnlock {
   createdAt DateTime @default(now())
 
   @@unique([userId, part, itemId])
+}
+
+model BugReport {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  category  String
+  message   String
+  status    String   @default("open")
+  createdAt DateTime @default(now())
 }
