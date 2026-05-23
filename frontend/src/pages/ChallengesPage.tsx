@@ -24,7 +24,7 @@ export default function ChallengesPage() {
     <Panel title={item.challenge.title} action={<Tier value={item.challenge.tier} />}>
       <p>{item.challenge.description}</p>
       <progress value={item.progress} max={item.challenge.target} />
-      <p className="between muted"><span>{item.progress} / {item.challenge.target}</span><span>{item.challenge.rewardType === 'cosmetic' ? 'Item Reward' : `+${item.challenge.xpReward} XP`}</span></p>
+      <p className="between muted"><span>{item.progress} / {item.challenge.target}</span><span>{item.challenge.rewardType === 'cosmetic' ? `+${item.challenge.xpReward} XP + Item` : `+${item.challenge.xpReward} XP`}</span></p>
       <p className={item.completed ? 'challenge-done' : 'muted'}>{item.completed ? <><CheckCircle2 size={16} /> Completed By Verified Activity</> : <><Lock size={16} /> Progress Comes From Programmed Workouts, Sports Sessions, Tests, And Wearable Syncs.</>}</p>
     </Panel>
   );

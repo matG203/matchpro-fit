@@ -128,11 +128,11 @@ const avatarParts = {
 const defaultChallenges = [
   { title: 'Daily Session', description: 'Complete one programmed workout or sport session today.', type: 'programWorkout', period: 'daily', target: 1, xpReward: 80, tier: 'Bronze' },
   { title: 'Daily Tracker Sync', description: 'Sync wearable steps, sleep, or heart-rate data today.', type: 'wearableSync', period: 'daily', target: 1, xpReward: 45, tier: 'Bronze' },
-  { title: 'Daily 8K Engine', description: 'Reach 8,000 verified wearable steps today.', type: 'steps', period: 'daily', target: 8000, xpReward: 0, rewardType: 'cosmetic', rewardPart: 'accessory', rewardItem: 'tracker-band', tier: 'Bronze' },
+  { title: 'Daily 8K Engine', description: 'Reach 8,000 verified wearable steps today.', type: 'steps', period: 'daily', target: 8000, xpReward: 90, rewardType: 'cosmetic', rewardPart: 'accessory', rewardItem: 'tracker-band', tier: 'Bronze' },
   { title: 'Daily Recovery Window', description: 'Record at least seven hours of wearable sleep today.', type: 'sleep', period: 'daily', target: 7, xpReward: 70, tier: 'Bronze' },
   { title: 'Weekly Training Block', description: 'Complete four programmed workouts or sport sessions this week.', type: 'programWorkout', period: 'weekly', target: 4, xpReward: 320, tier: 'Silver' },
   { title: 'Weekly Match Engine', description: 'Complete 180 verified training minutes this week.', type: 'trainingMinutes', period: 'weekly', target: 180, xpReward: 360, tier: 'Silver' },
-  { title: 'Weekly Test Marker', description: 'Log one fitness test block this week.', type: 'tests', period: 'weekly', target: 1, xpReward: 0, rewardType: 'cosmetic', rewardPart: 'face', rewardItem: 'warpaint', tier: 'Gold' },
+  { title: 'Weekly Test Marker', description: 'Log one testing block this week. A testing block is one save on the Fitness Tests page with at least one result entered.', type: 'tests', period: 'weekly', target: 1, xpReward: 280, rewardType: 'cosmetic', rewardPart: 'face', rewardItem: 'warpaint', tier: 'Gold' },
   { title: 'Pace I: First Burst', description: 'Complete one pace-focused session.', type: 'paceTraining', period: 'campaign', section: 'Pace', target: 1, xpReward: 150, tier: 'Bronze' },
   { title: 'Pace II: Sprint Habit', description: 'Complete five pace-focused sessions.', type: 'paceTraining', period: 'campaign', section: 'Pace', target: 5, xpReward: 0, rewardType: 'cosmetic', rewardPart: 'boots', rewardItem: 'sprinter', tier: 'Silver' },
   { title: 'Pace III: Speed Block', description: 'Complete ten pace-focused sessions.', type: 'paceTraining', period: 'campaign', section: 'Pace', target: 10, xpReward: 700, tier: 'Gold' },
@@ -643,6 +643,35 @@ async function unlockCosmetic(userId: string, part: string, itemId: string, sour
   return unlock;
 }
 
+const campaignExpansion = [
+  ['Pace', 'Pace V: Sprint Ladder', 'Complete 20 pace-focused sessions.', 'paceTraining', 20, 1400, 'Platinum'],
+  ['Pace', 'Pace VI: Fast Lane', 'Complete 35 pace-focused sessions.', 'paceTraining', 35, 2300, 'Elite'],
+  ['Pace', 'Pace VII: Speed Identity', 'Complete 50 pace-focused sessions.', 'paceTraining', 50, 3500, 'Elite'],
+  ['Pace', 'Pace VIII: Repeated Speed', 'Complete 75 pace-focused sessions.', 'paceTraining', 75, 5200, 'Elite'],
+  ['Leg Work', 'Leg Work IV: Strength Ladder', 'Complete 15 gym or strength sessions.', 'physicalTraining', 15, 1400, 'Platinum'],
+  ['Leg Work', 'Leg Work V: Iron Base', 'Complete 30 gym or strength sessions.', 'physicalTraining', 30, 2300, 'Elite'],
+  ['Leg Work', 'Leg Work VI: 1,500 Strength Minutes', 'Complete 1,500 verified strength minutes.', 'trainingMinutes', 1500, 3200, 'Elite'],
+  ['Leg Work', 'Leg Work VII: 2,500 Strength Minutes', 'Complete 2,500 verified strength minutes.', 'trainingMinutes', 2500, 5000, 'Elite'],
+  ['Engine', 'Engine IV: 2,000-Minute Base', 'Complete 2,000 verified training minutes.', 'trainingMinutes', 2000, 1800, 'Platinum'],
+  ['Engine', 'Engine V: 3,500-Minute Base', 'Complete 3,500 verified training minutes.', 'trainingMinutes', 3500, 2800, 'Elite'],
+  ['Engine', 'Engine VI: 5,000-Minute Base', 'Complete 5,000 verified training minutes.', 'trainingMinutes', 5000, 4200, 'Elite'],
+  ['Engine', 'Engine VII: Season Engine', 'Complete 7,500 verified training minutes.', 'trainingMinutes', 7500, 6500, 'Elite'],
+  ['Recovery', 'Recovery IV: 25 Syncs', 'Sync wearable recovery data 25 times.', 'wearableSync', 25, 1400, 'Platinum'],
+  ['Recovery', 'Recovery V: 40 Sleep Targets', 'Hit verified seven-hour sleep targets 40 times.', 'sleep', 40, 2400, 'Elite'],
+  ['Recovery', 'Recovery VI: 75 Syncs', 'Sync wearable recovery data 75 times.', 'wearableSync', 75, 4200, 'Elite'],
+  ['Recovery', 'Recovery VII: Recovery Professional', 'Hit verified seven-hour sleep targets 100 times.', 'sleep', 100, 6500, 'Elite'],
+  ['Technical', 'Technical IV: Touch Ladder', 'Complete 15 football or ball sessions.', 'technicalTraining', 15, 1400, 'Platinum'],
+  ['Technical', 'Technical V: Ball Mastery', 'Complete 30 football or ball sessions.', 'technicalTraining', 30, 2400, 'Elite'],
+  ['Technical', 'Technical VI: 50 Ball Sessions', 'Complete 50 football or ball sessions.', 'technicalTraining', 50, 4200, 'Elite'],
+  ['Technical', 'Technical VII: Maestro Grind', 'Complete 75 football or ball sessions.', 'technicalTraining', 75, 6500, 'Elite'],
+  ['Testing', 'Testing IV: Five Testing Blocks', 'Log five testing blocks. Each block is one saved group of fitness test results.', 'tests', 5, 1100, 'Gold'],
+  ['Testing', 'Testing V: Fifteen Testing Blocks', 'Log 15 testing blocks. Repeat tests over time to prove progress.', 'tests', 15, 2300, 'Platinum'],
+  ['Testing', 'Testing VI: Thirty Testing Blocks', 'Log 30 testing blocks across pace, strength, agility, and technical results.', 'tests', 30, 4200, 'Elite'],
+  ['Testing', 'Testing VII: Evidence Season', 'Log 50 testing blocks across your training journey.', 'tests', 50, 6500, 'Elite'],
+].map(([section, title, description, type, target, xpReward, tier]) => ({ section, title, description, type, period: 'campaign', target, xpReward, tier }));
+
+defaultChallenges.push(...campaignExpansion as typeof defaultChallenges);
+
 async function calculateReadiness(userId: string) {
   const fourWeeks = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000);
   const twelveWeeks = new Date(Date.now() - 84 * 24 * 60 * 60 * 1000);
@@ -722,10 +751,9 @@ async function applyChallengeProgress(userId: string, type: string, value: numbe
       data: { progress, completed: complete, completedAt: complete ? new Date() : null },
     });
     if (complete) {
+      if (item.challenge.xpReward > 0) await awardXp(userId, item.challenge.xpReward, item.challenge.title);
       if (item.challenge.rewardType === 'cosmetic' && item.challenge.rewardPart && item.challenge.rewardItem) {
         await unlockCosmetic(userId, item.challenge.rewardPart, item.challenge.rewardItem, item.challenge.title);
-      } else {
-        await awardXp(userId, item.challenge.xpReward, item.challenge.title);
       }
       if (item.challenge.period === 'campaign' && item.challenge.section) await checkCampaignSectionReward(userId, item.challenge.section);
     }
