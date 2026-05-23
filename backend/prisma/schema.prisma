@@ -48,6 +48,7 @@ model Workout {
   duration    Int
   intensity   String
   exercises   Json
+  source      String   @default("program")
   xpEarned    Int      @default(0)
   completedAt DateTime @default(now())
   createdAt   DateTime @default(now())
@@ -71,6 +72,8 @@ model Challenge {
   title       String
   description String
   type        String
+  period      String          @default("daily")
+  source      String          @default("verified")
   target      Int
   xpReward    Int
   tier        String          @default("Bronze")
@@ -85,6 +88,7 @@ model UserChallenge {
   user        User      @relation(fields: [userId], references: [id])
   challengeId String
   challenge   Challenge @relation(fields: [challengeId], references: [id])
+  periodStart DateTime  @default(now())
   progress    Int       @default(0)
   completed   Boolean   @default(false)
   completedAt DateTime?

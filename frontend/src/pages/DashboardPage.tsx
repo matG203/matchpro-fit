@@ -29,7 +29,7 @@ export default function DashboardPage() {
     <div className="page">
       <div className="page-head"><div><p className="eyebrow">Level {user.level || 1}</p><h1>{user.displayName || user.username || 'MatchFit Player'}</h1></div><Tier value={user.tier || 'Bronze'} /></div>
       <div className="grid-2">
-        <Panel title="Match Readiness"><ReadinessRing score={readiness.score || 0} /><div className="stat-grid">{Object.entries(factors).map(([label, value]) => <div className="stat" key={label}><strong>{String(value)}%</strong><small>{label}</small></div>)}</div></Panel>
+        <Panel title="Match Readiness"><ReadinessRing score={readiness.score || 0} />{readiness.target && <p className="muted">{readiness.target}</p>}<div className="stat-grid">{Object.entries(factors).map(([label, value]) => <div className="stat" key={label}><strong>{String(value)}%</strong><small>{label}</small></div>)}</div></Panel>
         <Panel title="Level Progress" action={<Link className="button secondary" to="/workout-planner">Log workout</Link>}><XPBar xp={user.xp || 0} floor={xp.levelFloorXp} next={xp.nextLevelXp} /><div className="stat-grid" style={{ marginTop: '1rem' }}><div className="stat"><strong>{stats.totalXp}</strong><small>Total XP</small></div><div className="stat"><strong>{stats.workoutsThisWeek}</strong><small>Workouts this week</small></div><div className="stat"><strong>{stats.streak}</strong><small>Day streak</small></div></div></Panel>
       </div>
       <div className="grid-2">
