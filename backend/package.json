@@ -9,7 +9,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "ts-node prisma/seed.ts",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "reset-password": "node scripts/reset-password.js"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",

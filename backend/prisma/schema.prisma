@@ -63,6 +63,7 @@ model HealthMetric {
   sleepHours Float?
   heartRate  Int?
   weight     Float?
+  bodyFat    Float?
   hydration  Float?
   createdAt  DateTime @default(now())
 }
@@ -189,6 +190,17 @@ model FitnessTest {
   yoyoLevel    Float?
   plankSeconds Int?
   jumpCm       Float?
+  broadJumpCm  Float?
+  agility505Seconds Float?
+  shuttleRunSeconds Float?
+  pushUps      Int?
+  pullUps      Int?
+  squatKg      Float?
+  benchKg      Float?
+  deadliftKg   Float?
+  passingScore Int?
+  dribbleSeconds Float?
+  shootingScore Int?
   notes        String?
   xpEarned     Int      @default(0)
   testedAt     DateTime @default(now())

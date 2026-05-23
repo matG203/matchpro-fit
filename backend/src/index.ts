@@ -318,6 +318,17 @@ async function progressCard(userId: string, gains: Partial<Record<(typeof cardKe
   return next;
 }
 
+async function applyTestBenchmarks(userId: string, benchmarks: Partial<Record<(typeof cardKeys)[number], number>>) {
+  const card = await applyCardDecay(userId);
+  const now = new Date();
+  const stats = Object.fromEntries(cardKeys.map((key) => [key, Math.max(card[key], benchmarks[key] || 0)])) as Record<(typeof cardKeys)[number], number>;
+  const trainedDates = Object.fromEntries(cardKeys.filter((key) => benchmarks[key] && benchmarks[key]! > card[key]).map((key) => [trainedAtKey[key], now]));
+  const next = await prisma.playerCard.update({ where: { userId }, data: { ...stats, ...trainedDates, overall: overallOf(stats) } });
+  const boosts = cardKeys.filter((key) => benchmarks[key] && benchmarks[key]! > card[key]).map((key) => `${key} set to ${stats[key]}`);
+  if (boosts.length) await prisma.notification.create({ data: { userId, type: 'card', message: `Testing benchmark achieved: ${boosts.join(', ')}.` } });
+  return next;
+}
+
 async function applyCardDecay(userId: string) {
   const card = await prisma.playerCard.upsert({ where: { userId }, create: { userId }, update: {} });
   const nextStats: Partial<Record<(typeof cardKeys)[number], number>> = {};
@@ -482,6 +493,46 @@ function testGains(test: { sprint30m?: number; run5kMinutes?: number; yoyoLevel?
     defending: test.plankSeconds && test.plankSeconds >= 90 ? 1 : 0,
     physical: (test.yoyoLevel ? 1 : 0) + (test.plankSeconds && test.plankSeconds >= 60 ? 1 : 0),
   };
+}
+
+function ratingFromLowerIsBetter(value: number | undefined, levels: Array<[number, number]>) {
+  if (!value) return 0;
+  return levels.find(([target]) => value <= target)?.[1] || 0;
+}
+
+function ratingFromHigherIsBetter(value: number | undefined, levels: Array<[number, number]>) {
+  if (!value) return 0;
+  return levels.find(([target]) => value >= target)?.[1] || 0;
+}
+
+function testBenchmarks(test: Record<string, number | string | Date | undefined>) {
+  const pace = Math.max(
+    ratingFromLowerIsBetter(test.sprint30m as number | undefined, [[3.8, 95], [4.1, 90], [4.4, 84], [4.7, 78], [5.0, 70], [5.4, 62], [5.9, 55]]),
+    ratingFromLowerIsBetter(test.run5kMinutes as number | undefined, [[16, 88], [18, 82], [20, 75], [23, 68], [26, 60], [30, 54]]),
+    ratingFromHigherIsBetter(test.yoyoLevel as number | undefined, [[22, 94], [20, 88], [18, 80], [16, 72], [14, 64], [12, 56]]),
+  );
+  const shooting = Math.max(
+    ratingFromHigherIsBetter(test.shootingScore as number | undefined, [[95, 92], [85, 84], [75, 76], [65, 68], [55, 60]]),
+    ratingFromHigherIsBetter(test.jumpCm as number | undefined, [[75, 88], [65, 80], [55, 72], [45, 64], [35, 56]]),
+  );
+  const passing = ratingFromHigherIsBetter(test.passingScore as number | undefined, [[95, 92], [85, 84], [75, 76], [65, 68], [55, 60]]);
+  const dribbling = Math.max(
+    ratingFromLowerIsBetter(test.dribbleSeconds as number | undefined, [[9, 92], [10, 84], [11.5, 76], [13, 68], [15, 60]]),
+    ratingFromLowerIsBetter(test.agility505Seconds as number | undefined, [[2.1, 90], [2.25, 82], [2.45, 74], [2.7, 66], [3, 58]]),
+  );
+  const defending = Math.max(
+    ratingFromLowerIsBetter(test.shuttleRunSeconds as number | undefined, [[8.4, 88], [8.9, 80], [9.5, 72], [10.2, 64], [11, 56]]),
+    ratingFromHigherIsBetter(test.plankSeconds as number | undefined, [[240, 86], [180, 78], [120, 70], [75, 62], [45, 55]]),
+  );
+  const physical = Math.max(
+    ratingFromHigherIsBetter(test.deadliftKg as number | undefined, [[180, 92], [150, 84], [120, 76], [90, 66], [60, 56]]),
+    ratingFromHigherIsBetter(test.squatKg as number | undefined, [[150, 90], [125, 82], [100, 74], [75, 64], [50, 55]]),
+    ratingFromHigherIsBetter(test.benchKg as number | undefined, [[110, 88], [90, 80], [70, 72], [50, 62], [35, 55]]),
+    ratingFromHigherIsBetter(test.pullUps as number | undefined, [[20, 88], [15, 80], [10, 70], [5, 60], [1, 52]]),
+    ratingFromHigherIsBetter(test.pushUps as number | undefined, [[70, 84], [50, 76], [35, 68], [20, 58]]),
+    ratingFromHigherIsBetter(test.broadJumpCm as number | undefined, [[290, 90], [260, 82], [230, 74], [200, 64], [170, 55]]),
+  );
+  return { pace, shooting, passing, dribbling, defending, physical };
 }
 
 async function awardXp(userId: string, amount: number, reason: string) {
@@ -802,6 +853,7 @@ app.post('/api/health', auth, asyncRoute(async (req, res) => {
     sleepHours: z.coerce.number().min(0).max(24).optional(),
     heartRate: z.coerce.number().int().min(20).max(260).optional(),
     weight: z.coerce.number().positive().max(400).optional(),
+    bodyFat: z.coerce.number().min(1).max(70).optional(),
     hydration: z.coerce.number().min(0).max(20).optional(),
   }).parse(req.body);
   const metric = await prisma.healthMetric.create({ data: { ...body, userId: authId(req) } });
@@ -842,17 +894,29 @@ app.post('/api/tests', auth, asyncRoute(async (req, res) => {
     yoyoLevel: z.coerce.number().positive().max(30).optional(),
     plankSeconds: z.coerce.number().int().positive().max(3600).optional(),
     jumpCm: z.coerce.number().positive().max(200).optional(),
+    broadJumpCm: z.coerce.number().positive().max(500).optional(),
+    agility505Seconds: z.coerce.number().positive().max(30).optional(),
+    shuttleRunSeconds: z.coerce.number().positive().max(60).optional(),
+    pushUps: z.coerce.number().int().positive().max(300).optional(),
+    pullUps: z.coerce.number().int().positive().max(100).optional(),
+    squatKg: z.coerce.number().positive().max(500).optional(),
+    benchKg: z.coerce.number().positive().max(400).optional(),
+    deadliftKg: z.coerce.number().positive().max(600).optional(),
+    passingScore: z.coerce.number().int().min(0).max(100).optional(),
+    dribbleSeconds: z.coerce.number().positive().max(120).optional(),
+    shootingScore: z.coerce.number().int().min(0).max(100).optional(),
     notes: z.string().trim().max(280).optional(),
     testedAt: z.coerce.date().optional(),
   }).parse(req.body);
   if (!Object.values(body).some((value) => typeof value === 'number')) return res.status(400).json({ error: 'Log at least one test result.' });
   const xpEarned = 70 + Object.values(body).filter((value) => typeof value === 'number').length * 12;
   const test = await prisma.fitnessTest.create({ data: { ...body, xpEarned, userId: authId(req) } });
-  const [xp, card] = await Promise.all([
+  const [xp, _smallGain] = await Promise.all([
     awardXp(authId(req), xpEarned, 'fitness tests'),
     progressCard(authId(req), testGains(body), 'fitness tests'),
     applyChallengeProgress(authId(req), 'tests', 1),
   ]);
+  const card = await applyTestBenchmarks(authId(req), testBenchmarks(body));
   const readiness = await calculateReadiness(authId(req));
   res.status(201).json({ test, xp, card, readiness });
 }));
