@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Activity, Award, CalendarDays, Dumbbell, HeartPulse, Home, LogOut, Medal, Settings, Shirt, Users, Watch, Zap } from 'lucide-react';
+import { Activity, Award, CalendarDays, Dumbbell, Flag, HeartPulse, Home, LogOut, Medal, Settings, Shirt, Users, Watch, Zap } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { AvatarMark, Tier } from '../ui';
 import api from '../../lib/api';
@@ -12,6 +12,7 @@ const links = [
   ['/workout-planner', 'Programmer', Dumbbell],
   ['/workouts', 'History', Activity],
   ['/challenges', 'Objectives', Zap],
+  ['/campaign', 'Campaign', Flag],
   ['/leaderboard', 'Leaderboard', Medal],
   ['/friends', 'Friends', Users],
   ['/health', 'Health', HeartPulse],

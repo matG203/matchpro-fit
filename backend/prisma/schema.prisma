@@ -38,6 +38,7 @@ model User {
   settings       UserSettings?
   fitnessTests   FitnessTest[]
   avatarLoadout  AvatarLoadout?
+  cosmeticUnlocks UserCosmeticUnlock[]
 }
 
 model Workout {
@@ -74,9 +75,13 @@ model Challenge {
   description String
   type        String
   period      String          @default("daily")
+  section     String?
   source      String          @default("verified")
   target      Int
   xpReward    Int
+  rewardType  String          @default("xp")
+  rewardPart  String?
+  rewardItem  String?
   tier        String          @default("Bronze")
   isActive    Boolean         @default(true)
   createdAt   DateTime        @default(now())
@@ -220,4 +225,16 @@ model AvatarLoadout {
   aura      String   @default("none")
   pose      String   @default("ready")
   updatedAt DateTime @updatedAt
+}
+
+model UserCosmeticUnlock {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  part      String
+  itemId    String
+  source    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, part, itemId])
 }

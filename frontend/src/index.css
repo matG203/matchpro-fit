@@ -116,6 +116,10 @@ button:disabled { cursor: wait; opacity: .55; }
 .player-figure.kit-platinum { --kit: #7c3aed; --kit-shadow: #c4b5fd; }
 .player-figure.kit-gold { --kit: #facc15; --kit-shadow: #92400e; }
 .player-figure.kit-elite { --kit: #020617; --kit-shadow: #facc15; }
+.player-figure.kit-pace-flash { --kit: #38bdf8; --kit-shadow: #1d4ed8; }
+.player-figure.kit-engine-room { --kit: #22c55e; --kit-shadow: #064e3b; }
+.player-figure.kit-strength-core { --kit: #ef4444; --kit-shadow: #7f1d1d; }
+.player-figure.kit-maestro { --kit: #f8fafc; --kit-shadow: #2563eb; }
 .player-figure i { display: block; position: absolute; }
 .figure-aura { border-radius: 50%; inset: 1rem 1.4rem 1.8rem; opacity: 0; z-index: 0; }
 .aura-speed .figure-aura { border-left: .45rem solid #67e8f9; border-right: .45rem solid #67e8f9; filter: blur(1px); opacity: .72; transform: skewX(-14deg); }
@@ -123,6 +127,9 @@ button:disabled { cursor: wait; opacity: .55; }
 .aura-flare .figure-aura { background: radial-gradient(circle at 50% 78%, #f9731655, transparent 58%); border-bottom: .42rem solid #fbbf24; opacity: 1; }
 .aura-platinum .figure-aura { border: .22rem solid #c4b5fd; box-shadow: inset 0 0 28px #a78bfa, 0 0 22px #ddd6fe; opacity: 1; }
 .aura-elite .figure-aura { background: radial-gradient(circle, #facc1524, transparent 58%); border: .22rem dashed #facc15; box-shadow: 0 0 30px #facc15; opacity: 1; }
+.aura-campaign-blue .figure-aura { background: radial-gradient(circle, #38bdf83d, transparent 62%); border: .2rem solid #38bdf8; box-shadow: 0 0 28px #38bdf8; opacity: 1; }
+.aura-section-gold .figure-aura { background: radial-gradient(circle, #facc1535, transparent 62%); border: .24rem solid #facc15; box-shadow: 0 0 32px #facc15; opacity: 1; }
+.aura-invincible .figure-aura { background: radial-gradient(circle, #facc153d, #38bdf824 42%, transparent 68%); border: .24rem double #f8fafc; box-shadow: 0 0 38px #f8fafc; opacity: 1; }
 .figure-shadow { background: #02061788; border-radius: 50%; bottom: .55rem; filter: blur(5px); height: 1.2rem; left: 19%; width: 62%; }
 .figure-head { background: var(--skin); border-radius: 50% 50% 46% 46%; box-shadow: inset -.3rem -.2rem #00000018; height: 3.15rem; left: 4.35rem; top: 1.2rem; width: 3rem; z-index: 4; }
 .figure-head b { display: block; position: absolute; }
@@ -136,6 +143,8 @@ button:disabled { cursor: wait; opacity: .55; }
 .face-freckles .figure-face-detail { box-shadow: .32rem 0 #7c4329, .63rem .08rem #7c4329, 1.3rem -.03rem #7c4329, 1.62rem .07rem #7c4329; border-radius: 50%; height: .12rem; left: .55rem; top: 1.68rem; width: .12rem; }
 .face-beard .figure-face-detail { background: #28150f; border-radius: 0 0 1.2rem 1.2rem; bottom: .08rem; height: 1rem; left: .52rem; opacity: .85; width: 1.98rem; }
 .face-visor .figure-face-detail { background: linear-gradient(90deg, #67e8f9cc, #a78bfaee); border: .08rem solid #f8fafcaa; border-radius: 999px; box-shadow: 0 0 9px #67e8f9; height: .58rem; left: .42rem; top: .96rem; width: 2.15rem; }
+.face-warpaint .figure-face-detail { background: linear-gradient(90deg, #2563eb, #f43f5e); height: .18rem; left: .55rem; top: 1.55rem; width: 1.9rem; }
+.face-captain-beard .figure-face-detail { background: #2f1d12; border-radius: 0 0 50% 50%; height: .72rem; left: .74rem; top: 1.82rem; width: 1.5rem; }
 .figure-hair { background: #111827; border-radius: 1.6rem 1.6rem .5rem .5rem; height: 1.12rem; left: 4.28rem; top: .95rem; width: 3.16rem; z-index: 5; }
 .hair-crop .figure-hair { height: .78rem; }
 .hair-curls .figure-hair { border-radius: 1.8rem; box-shadow: -.38rem .18rem #111827, .4rem .15rem #111827, 0 .45rem #111827; height: 1.38rem; top: .72rem; }
@@ -144,6 +153,8 @@ button:disabled { cursor: wait; opacity: .55; }
 .hair-braids .figure-hair:after { border-left: .34rem solid #111827; border-right: .34rem solid #111827; bottom: -2rem; content: ""; height: 2.2rem; left: .42rem; position: absolute; width: 1.96rem; }
 .hair-mohawk .figure-hair { border-radius: .3rem; height: 1.92rem; left: 5.2rem; top: -.46rem; width: 1.25rem; }
 .hair-silver .figure-hair { background: linear-gradient(90deg, #111827 0 54%, #e2e8f0 55% 68%, #111827 69%); }
+.hair-electric .figure-hair { background: linear-gradient(90deg, #0f172a, #38bdf8); }
+.hair-gold-band .figure-hair { background: linear-gradient(90deg, #171717 0 62%, #facc15 63% 78%, #171717 79%); }
 .figure-shirt { background: linear-gradient(120deg, var(--kit), var(--kit-shadow)); border-radius: 1.7rem 1.7rem .8rem .8rem; box-shadow: inset 0 .14rem #ffffff38; height: 5.1rem; left: 3.3rem; top: 4rem; width: 5.2rem; z-index: 3; }
 .kit-stripes .figure-shirt { background: repeating-linear-gradient(90deg, #f8fafc 0 .9rem, #2563eb .9rem 1.7rem); }
 .figure-shirt:after { background: #ffffffcc; border-radius: 999px; content: ""; height: .24rem; left: 1.1rem; position: absolute; top: 1rem; width: 3rem; }
@@ -167,6 +178,9 @@ button:disabled { cursor: wait; opacity: .55; }
 .accessory-medal .figure-accessory:after { background: #facc15; border-radius: 50%; bottom: -.32rem; content: ""; height: .72rem; left: -.19rem; position: absolute; width: .72rem; }
 .accessory-scarf .figure-accessory { border-bottom: .44rem solid #ef4444; border-left: .44rem solid #ef4444; height: 1.85rem; left: 4.48rem; top: 3.72rem; transform: rotate(-8deg); width: 2.6rem; }
 .accessory-armour .figure-accessory { border-left: .48rem solid #c4b5fd; border-right: .48rem solid #c4b5fd; height: 1.8rem; left: 2.65rem; top: 4.8rem; width: 6.5rem; }
+.accessory-ankle-tape .figure-accessory { border-bottom: .22rem solid #f8fafc; height: 8.9rem; left: 3.9rem; top: 1.2rem; width: 4rem; }
+.accessory-tracker-band .figure-accessory { background: #22c55e; border-radius: 999px; height: .28rem; left: 2.7rem; top: 6.35rem; width: .9rem; }
+.accessory-gold-captain .figure-accessory { background: #facc15; border-radius: 999px; height: .36rem; right: 2.45rem; top: 6.15rem; width: 1.2rem; }
 .boots-white .figure-boot { background: #f8fafc; }
 .boots-speed-blue .figure-boot { background: linear-gradient(90deg, #1d4ed8, #67e8f9); }
 .boots-citrus .figure-boot { background: linear-gradient(90deg, #84cc16, #facc15); }
@@ -174,6 +188,9 @@ button:disabled { cursor: wait; opacity: .55; }
 .boots-ice .figure-boot { background: linear-gradient(90deg, #e0f2fe, #38bdf8); box-shadow: 0 0 8px #bae6fd; }
 .boots-gold .figure-boot { background: linear-gradient(90deg, #92400e, #fde047); }
 .boots-glow .figure-boot { background: linear-gradient(90deg, #67e8f9, #facc15); box-shadow: 0 0 14px #67e8f9; }
+.boots-sprinter .figure-boot { background: linear-gradient(90deg, #0f172a, #38bdf8); box-shadow: 0 0 10px #38bdf8; }
+.boots-power-red .figure-boot { background: linear-gradient(90deg, #7f1d1d, #f87171); }
+.boots-maestro-white .figure-boot { background: linear-gradient(90deg, #f8fafc, #93c5fd); }
 .pose-hands-hips .figure-arm.left { left: 2.95rem; top: 5.95rem; transform: rotate(-55deg); }
 .pose-hands-hips .figure-arm.right { right: 2.95rem; top: 5.95rem; transform: rotate(55deg); }
 .pose-celebrate .figure-arm.left { left: 3.3rem; top: 2.7rem; transform: rotate(145deg); transform-origin: top; }
@@ -186,6 +203,11 @@ button:disabled { cursor: wait; opacity: .55; }
 .pose-icon { transform: scale(1.03); }
 .pose-icon .figure-arm.left { left: 2.2rem; transform: rotate(32deg); }
 .pose-icon .figure-arm.right { right: 2.2rem; transform: rotate(-32deg); }
+.pose-sprinter-start { transform: rotate(-5deg); }
+.pose-sprinter-start .figure-leg.left { transform: rotate(30deg); }
+.pose-power-flex .figure-arm.left { transform: rotate(105deg); transform-origin: top; }
+.pose-power-flex .figure-arm.right { transform: rotate(-105deg); transform-origin: top; }
+.pose-playmaker-scan .figure-head { transform: rotate(-10deg); }
 .readiness { aspect-ratio: 1; display: grid; margin: auto; max-width: 13rem; place-items: center; position: relative; }
 .readiness svg { height: 100%; transform: rotate(-90deg); width: 100%; }
 .readiness circle { fill: none; stroke-width: 13; } .ring-track { stroke: #ffffff17; } .ring-fill { stroke: url(#none); stroke: #60a5fa; stroke-linecap: round; transition: stroke-dashoffset 1s; filter: drop-shadow(0 0 9px #3b82f6); }

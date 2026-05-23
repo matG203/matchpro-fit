@@ -44,6 +44,8 @@ const avatarParts = {
     { id: 'freckles', name: 'Freckles', level: 9 },
     { id: 'beard', name: 'Short Beard', level: 13 },
     { id: 'visor', name: 'Game Visor', level: 20 },
+    { id: 'warpaint', name: 'Match Paint', level: 99 },
+    { id: 'captain-beard', name: 'Captain Beard', level: 99 },
   ],
   hair: [
     { id: 'fade', name: 'Fade', level: 1 },
@@ -54,6 +56,8 @@ const avatarParts = {
     { id: 'braids', name: 'Braids', level: 11 },
     { id: 'mohawk', name: 'Match Mohawk', level: 15 },
     { id: 'silver', name: 'Silver Streak', level: 24 },
+    { id: 'electric', name: 'Electric Blue Fade', level: 99 },
+    { id: 'gold-band', name: 'Gold Band Cut', level: 99 },
   ],
   kit: [
     { id: 'academy', name: 'Academy Blue', level: 1 },
@@ -65,6 +69,10 @@ const avatarParts = {
     { id: 'platinum', name: 'Platinum Pulse', level: 18 },
     { id: 'gold', name: 'Gold Trim', level: 23 },
     { id: 'elite', name: 'Elite Blackout', level: 32 },
+    { id: 'pace-flash', name: 'Pace Flash', level: 99 },
+    { id: 'engine-room', name: 'Engine Room', level: 99 },
+    { id: 'strength-core', name: 'Strength Core', level: 99 },
+    { id: 'maestro', name: 'Maestro Kit', level: 99 },
   ],
   accessory: [
     { id: 'none', name: 'No Accessory', level: 1 },
@@ -76,6 +84,9 @@ const avatarParts = {
     { id: 'medal', name: 'Winner Medal', level: 14 },
     { id: 'scarf', name: 'Tunnel Scarf', level: 19 },
     { id: 'armour', name: 'Elite Arm Plates', level: 28 },
+    { id: 'ankle-tape', name: 'Pro Ankle Tape', level: 99 },
+    { id: 'tracker-band', name: 'Tracker Band', level: 99 },
+    { id: 'gold-captain', name: 'Gold Captain Band', level: 99 },
   ],
   boots: [
     { id: 'black', name: 'Black Boots', level: 1 },
@@ -86,6 +97,9 @@ const avatarParts = {
     { id: 'ice', name: 'Ice Boots', level: 13 },
     { id: 'gold', name: 'Gold Boots', level: 21 },
     { id: 'glow', name: 'Glow Boots', level: 30 },
+    { id: 'sprinter', name: 'Sprinter Spikes', level: 99 },
+    { id: 'power-red', name: 'Power Red Boots', level: 99 },
+    { id: 'maestro-white', name: 'Maestro White Boots', level: 99 },
   ],
   aura: [
     { id: 'none', name: 'No Aura', level: 1 },
@@ -94,6 +108,9 @@ const avatarParts = {
     { id: 'flare', name: 'Goal Flare', level: 16 },
     { id: 'platinum', name: 'Platinum Halo', level: 24 },
     { id: 'elite', name: 'Elite Sparks', level: 36 },
+    { id: 'campaign-blue', name: 'Campaign Blue Aura', level: 99 },
+    { id: 'section-gold', name: 'Section Gold Aura', level: 99 },
+    { id: 'invincible', name: 'Invincible Aura', level: 99 },
   ],
   pose: [
     { id: 'ready', name: 'Ready', level: 1 },
@@ -103,23 +120,48 @@ const avatarParts = {
     { id: 'strike', name: 'Strike', level: 15 },
     { id: 'shield', name: 'Defender Shield', level: 22 },
     { id: 'icon', name: 'Icon Stance', level: 35 },
+    { id: 'sprinter-start', name: 'Sprinter Start', level: 99 },
+    { id: 'power-flex', name: 'Power Flex', level: 99 },
+    { id: 'playmaker-scan', name: 'Playmaker Scan', level: 99 },
   ],
 } as const;
 const defaultChallenges = [
   { title: 'Daily Session', description: 'Complete one programmed workout or sport session today.', type: 'programWorkout', period: 'daily', target: 1, xpReward: 80, tier: 'Bronze' },
   { title: 'Daily Tracker Sync', description: 'Sync wearable steps, sleep, or heart-rate data today.', type: 'wearableSync', period: 'daily', target: 1, xpReward: 45, tier: 'Bronze' },
-  { title: 'Daily 8K Engine', description: 'Reach 8,000 verified wearable steps today.', type: 'steps', period: 'daily', target: 8000, xpReward: 70, tier: 'Bronze' },
+  { title: 'Daily 8K Engine', description: 'Reach 8,000 verified wearable steps today.', type: 'steps', period: 'daily', target: 8000, xpReward: 0, rewardType: 'cosmetic', rewardPart: 'accessory', rewardItem: 'tracker-band', tier: 'Bronze' },
   { title: 'Daily Recovery Window', description: 'Record at least seven hours of wearable sleep today.', type: 'sleep', period: 'daily', target: 7, xpReward: 70, tier: 'Bronze' },
   { title: 'Weekly Training Block', description: 'Complete four programmed workouts or sport sessions this week.', type: 'programWorkout', period: 'weekly', target: 4, xpReward: 320, tier: 'Silver' },
   { title: 'Weekly Match Engine', description: 'Complete 180 verified training minutes this week.', type: 'trainingMinutes', period: 'weekly', target: 180, xpReward: 360, tier: 'Silver' },
-  { title: 'Weekly Test Marker', description: 'Log one fitness test block this week.', type: 'tests', period: 'weekly', target: 1, xpReward: 260, tier: 'Gold' },
-  { title: 'Campaign Kickoff', description: 'Complete your first programmed workout.', type: 'programWorkout', period: 'campaign', target: 1, xpReward: 180, tier: 'Bronze' },
-  { title: 'Campaign Engine Builder', description: 'Complete 600 verified training minutes.', type: 'trainingMinutes', period: 'campaign', target: 600, xpReward: 650, tier: 'Silver' },
-  { title: 'Campaign Recovery Habit', description: 'Sync wearable recovery data 10 times.', type: 'wearableSync', period: 'campaign', target: 10, xpReward: 500, tier: 'Silver' },
-  { title: 'Campaign Testing Baseline', description: 'Log three fitness test blocks.', type: 'tests', period: 'campaign', target: 3, xpReward: 700, tier: 'Gold' },
-  { title: 'Campaign Speed Base', description: 'Complete five pace-focused running or sprint sessions.', type: 'paceTraining', period: 'campaign', target: 5, xpReward: 620, tier: 'Gold' },
-  { title: 'Campaign Strength Base', description: 'Complete five gym or strength sessions.', type: 'physicalTraining', period: 'campaign', target: 5, xpReward: 620, tier: 'Gold' },
+  { title: 'Weekly Test Marker', description: 'Log one fitness test block this week.', type: 'tests', period: 'weekly', target: 1, xpReward: 0, rewardType: 'cosmetic', rewardPart: 'face', rewardItem: 'warpaint', tier: 'Gold' },
+  { title: 'Pace I: First Burst', description: 'Complete one pace-focused session.', type: 'paceTraining', period: 'campaign', section: 'Pace', target: 1, xpReward: 150, tier: 'Bronze' },
+  { title: 'Pace II: Sprint Habit', description: 'Complete five pace-focused sessions.', type: 'paceTraining', period: 'campaign', section: 'Pace', target: 5, xpReward: 0, rewardType: 'cosmetic', rewardPart: 'boots', rewardItem: 'sprinter', tier: 'Silver' },
+  { title: 'Pace III: Speed Block', description: 'Complete ten pace-focused sessions.', type: 'paceTraining', period: 'campaign', section: 'Pace', target: 10, xpReward: 700, tier: 'Gold' },
+  { title: 'Pace IV: 30m Proof', description: 'Log five test blocks with sprint or agility results.', type: 'tests', period: 'campaign', section: 'Pace', target: 5, xpReward: 850, tier: 'Gold' },
+  { title: 'Leg Work I: Strength Start', description: 'Complete one gym or strength session.', type: 'physicalTraining', period: 'campaign', section: 'Leg Work', target: 1, xpReward: 150, tier: 'Bronze' },
+  { title: 'Leg Work II: Lower Body Base', description: 'Complete five gym or strength sessions.', type: 'physicalTraining', period: 'campaign', section: 'Leg Work', target: 5, xpReward: 0, rewardType: 'cosmetic', rewardPart: 'kit', rewardItem: 'strength-core', tier: 'Silver' },
+  { title: 'Leg Work III: Power Volume', description: 'Complete 500 verified strength minutes.', type: 'trainingMinutes', period: 'campaign', section: 'Leg Work', target: 500, xpReward: 750, tier: 'Gold' },
+  { title: 'Engine I: First Engine Block', description: 'Complete 180 verified training minutes.', type: 'trainingMinutes', period: 'campaign', section: 'Engine', target: 180, xpReward: 300, tier: 'Bronze' },
+  { title: 'Engine II: 600-Minute Base', description: 'Complete 600 verified training minutes.', type: 'trainingMinutes', period: 'campaign', section: 'Engine', target: 600, xpReward: 0, rewardType: 'cosmetic', rewardPart: 'kit', rewardItem: 'engine-room', tier: 'Silver' },
+  { title: 'Engine III: 1,200-Minute Base', description: 'Complete 1,200 verified training minutes.', type: 'trainingMinutes', period: 'campaign', section: 'Engine', target: 1200, xpReward: 1000, tier: 'Gold' },
+  { title: 'Recovery I: Sync Starter', description: 'Sync wearable recovery data three times.', type: 'wearableSync', period: 'campaign', section: 'Recovery', target: 3, xpReward: 220, tier: 'Bronze' },
+  { title: 'Recovery II: Recovery Rhythm', description: 'Sync wearable recovery data 10 times.', type: 'wearableSync', period: 'campaign', section: 'Recovery', target: 10, xpReward: 0, rewardType: 'cosmetic', rewardPart: 'aura', rewardItem: 'campaign-blue', tier: 'Silver' },
+  { title: 'Recovery III: Sleep Discipline', description: 'Hit verified seven-hour sleep targets 14 times.', type: 'sleep', period: 'campaign', section: 'Recovery', target: 14, xpReward: 800, tier: 'Gold' },
+  { title: 'Technical I: Ball Work Start', description: 'Complete one football or ball session.', type: 'technicalTraining', period: 'campaign', section: 'Technical', target: 1, xpReward: 150, tier: 'Bronze' },
+  { title: 'Technical II: Touch Builder', description: 'Complete six football or ball sessions.', type: 'technicalTraining', period: 'campaign', section: 'Technical', target: 6, xpReward: 0, rewardType: 'cosmetic', rewardPart: 'kit', rewardItem: 'maestro', tier: 'Silver' },
+  { title: 'Technical III: Test The Touch', description: 'Log three technical test blocks.', type: 'tests', period: 'campaign', section: 'Technical', target: 3, xpReward: 750, tier: 'Gold' },
+  { title: 'Testing I: Baseline', description: 'Log your first fitness test block.', type: 'tests', period: 'campaign', section: 'Testing', target: 1, xpReward: 250, tier: 'Bronze' },
+  { title: 'Testing II: Three Checkpoints', description: 'Log three fitness test blocks.', type: 'tests', period: 'campaign', section: 'Testing', target: 3, xpReward: 0, rewardType: 'cosmetic', rewardPart: 'pose', rewardItem: 'playmaker-scan', tier: 'Silver' },
+  { title: 'Testing III: Ten Checkpoints', description: 'Log ten fitness test blocks.', type: 'tests', period: 'campaign', section: 'Testing', target: 10, xpReward: 1300, tier: 'Platinum' },
 ];
+
+const campaignSectionRewards = {
+  Pace: { xp: 1200, part: 'pose', itemId: 'sprinter-start', name: 'Sprinter Start' },
+  'Leg Work': { xp: 1200, part: 'pose', itemId: 'power-flex', name: 'Power Flex' },
+  Engine: { xp: 1400, part: 'aura', itemId: 'section-gold', name: 'Section Gold Aura' },
+  Recovery: { xp: 1100, part: 'accessory', itemId: 'ankle-tape', name: 'Pro Ankle Tape' },
+  Technical: { xp: 1200, part: 'boots', itemId: 'maestro-white', name: 'Maestro White Boots' },
+  Testing: { xp: 1500, part: 'aura', itemId: 'invincible', name: 'Invincible Aura' },
+} as const;
 
 type SafeUser = Omit<User, 'passwordHash'>;
 type AsyncRoute = (req: Request, res: Response, next: NextFunction) => Promise<unknown>;
@@ -552,6 +594,15 @@ async function awardXp(userId: string, amount: number, reason: string) {
   return { user: updated, amount: Math.round(amount), reason, ...state };
 }
 
+async function unlockCosmetic(userId: string, part: string, itemId: string, source: string) {
+  const exists = await prisma.userCosmeticUnlock.findUnique({ where: { userId_part_itemId: { userId, part, itemId } } });
+  if (exists) return exists;
+  const unlock = await prisma.userCosmeticUnlock.create({ data: { userId, part, itemId, source } });
+  const item = avatarParts[part as keyof typeof avatarParts]?.find((option) => option.id === itemId);
+  await prisma.notification.create({ data: { userId, type: 'cosmetic', message: `${item?.name || itemId} unlocked for your player.` } });
+  return unlock;
+}
+
 async function calculateReadiness(userId: string) {
   const fourWeeks = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000);
   const twelveWeeks = new Date(Date.now() - 84 * 24 * 60 * 60 * 1000);
@@ -630,8 +681,27 @@ async function applyChallengeProgress(userId: string, type: string, value: numbe
       where: { id: item.id },
       data: { progress, completed: complete, completedAt: complete ? new Date() : null },
     });
-    if (complete) await awardXp(userId, item.challenge.xpReward, item.challenge.title);
+    if (complete) {
+      if (item.challenge.rewardType === 'cosmetic' && item.challenge.rewardPart && item.challenge.rewardItem) {
+        await unlockCosmetic(userId, item.challenge.rewardPart, item.challenge.rewardItem, item.challenge.title);
+      } else {
+        await awardXp(userId, item.challenge.xpReward, item.challenge.title);
+      }
+      if (item.challenge.period === 'campaign' && item.challenge.section) await checkCampaignSectionReward(userId, item.challenge.section);
+    }
   }));
+}
+
+async function checkCampaignSectionReward(userId: string, section: string) {
+  const reward = campaignSectionRewards[section as keyof typeof campaignSectionRewards];
+  if (!reward) return;
+  const source = `section:${section}`;
+  const already = await prisma.userCosmeticUnlock.findFirst({ where: { userId, source } });
+  if (already) return;
+  const items = await prisma.userChallenge.findMany({ where: { userId, challenge: { period: 'campaign', section, isActive: true } }, include: { challenge: true } });
+  if (!items.length || items.some((item) => !item.completed)) return;
+  await awardXp(userId, reward.xp, `${section} campaign section complete`);
+  await unlockCosmetic(userId, reward.part, reward.itemId, source);
 }
 
 async function recentStreak(userId: string) {
@@ -734,14 +804,18 @@ app.post('/api/onboarding', auth, asyncRoute(async (req, res) => {
 
 app.get('/api/avatar', auth, asyncRoute(async (req, res) => {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: authId(req) }, select: { xp: true, level: true, avatarId: true } });
-  const loadout = await prisma.avatarLoadout.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} });
+  const [loadout, cosmeticUnlocks] = await Promise.all([
+    prisma.avatarLoadout.upsert({ where: { userId: authId(req) }, create: { userId: authId(req) }, update: {} }),
+    prisma.userCosmeticUnlock.findMany({ where: { userId: authId(req) } }),
+  ]);
+  const unlocked = new Set(cosmeticUnlocks.map((item) => `${item.part}:${item.itemId}`));
   res.json({
     level: user.level,
     xp: user.xp,
     equipped: user.avatarId || avatarCatalog[0].id,
     avatars: avatarCatalog.map((item) => ({ ...item, unlocked: user.level >= item.level })),
     loadout,
-    parts: Object.fromEntries(Object.entries(avatarParts).map(([part, options]) => [part, options.map((item) => ({ ...item, unlocked: user.level >= item.level }))])),
+    parts: Object.fromEntries(Object.entries(avatarParts).map(([part, options]) => [part, options.map((item) => ({ ...item, unlocked: user.level >= item.level || unlocked.has(`${part}:${item.id}`), rewardUnlocked: unlocked.has(`${part}:${item.id}`) }))])),
   });
 }));
 app.put('/api/avatar', auth, asyncRoute(async (req, res) => {
@@ -765,7 +839,8 @@ app.put('/api/avatar', auth, asyncRoute(async (req, res) => {
   const nextLoadout = Object.fromEntries(Object.entries(body).filter(([key]) => key !== 'avatarId'));
   for (const [part, value] of Object.entries(nextLoadout)) {
     const option = avatarParts[part as keyof typeof avatarParts]?.find((item) => item.id === value);
-    if (!option || option.level > user.level) return res.status(403).json({ error: 'That player option is still locked by level.' });
+    const rewardUnlock = await prisma.userCosmeticUnlock.findUnique({ where: { userId_part_itemId: { userId: authId(req), part, itemId: String(value) } } });
+    if (!option || (option.level > user.level && !rewardUnlock)) return res.status(403).json({ error: 'That player option is still locked.' });
   }
   res.json({ loadout: await prisma.avatarLoadout.upsert({ where: { userId: authId(req) }, create: { userId: authId(req), ...nextLoadout }, update: nextLoadout }) });
 }));
@@ -799,6 +874,7 @@ app.post('/api/workout', auth, asyncRoute(async (req, res) => {
     await applyChallengeProgress(authId(req), 'trainingMinutes', body.duration);
     if (['running', 'football', 'cycling'].includes(body.type)) await applyChallengeProgress(authId(req), 'paceTraining', 1);
     if (body.type === 'gym') await applyChallengeProgress(authId(req), 'physicalTraining', 1);
+    if (body.type === 'football') await applyChallengeProgress(authId(req), 'technicalTraining', 1);
   }
   await calculateReadiness(authId(req));
   res.status(201).json(workout);
@@ -839,6 +915,7 @@ app.post('/api/program/complete', auth, asyncRoute(async (req, res) => {
   await applyChallengeProgress(authId(req), 'trainingMinutes', body.duration);
   if (['running', 'football', 'cycling'].includes(body.type)) await applyChallengeProgress(authId(req), 'paceTraining', 1);
   if (body.type === 'gym') await applyChallengeProgress(authId(req), 'physicalTraining', 1);
+  if (body.type === 'football') await applyChallengeProgress(authId(req), 'technicalTraining', 1);
   const readiness = await calculateReadiness(authId(req));
   res.status(201).json({ workout, card, readiness });
 }));
@@ -878,6 +955,17 @@ app.get('/api/challenges', auth, asyncRoute(async (req, res) => {
     orderBy: [{ challenge: { period: 'asc' } }, { createdAt: 'asc' }],
   });
   res.json({ items, resets: resetTimes() });
+}));
+app.get('/api/campaign', auth, asyncRoute(async (req, res) => {
+  await ensureChallenges(authId(req));
+  const items = await prisma.userChallenge.findMany({ where: { userId: authId(req), challenge: { isActive: true, period: 'campaign' }, periodStart: startOfPeriod('campaign') }, include: { challenge: true }, orderBy: { createdAt: 'asc' } });
+  const sections = Object.entries(items.reduce((acc, item) => {
+    const section = item.challenge.section || 'General';
+    acc[section] = acc[section] || [];
+    acc[section].push(item);
+    return acc;
+  }, {} as Record<string, typeof items>)).map(([name, challenges]) => ({ name, reward: campaignSectionRewards[name as keyof typeof campaignSectionRewards], complete: challenges.every((item) => item.completed), challenges }));
+  res.json({ sections });
 }));
 app.post('/api/challenges/:id/progress', auth, asyncRoute(async (req, res) => {
   res.status(403).json({ error: 'Objectives only progress from verified training, tests, and wearable syncs.' });

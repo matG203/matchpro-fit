@@ -5,6 +5,7 @@ import Layout from './components/layout/Layout';
 import { useAuthStore } from './store/authStore';
 import AvatarPage from './pages/AvatarPage';
 import ChallengesPage from './pages/ChallengesPage';
+import CampaignPage from './pages/CampaignPage';
 import DashboardPage from './pages/DashboardPage';
 import FriendsPage from './pages/FriendsPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="/workout-planner" element={<WorkoutPlannerPage />} />
             <Route path="/workouts" element={<WorkoutsPage />} />
             <Route path="/challenges" element={<ChallengesPage />} />
+            <Route path="/campaign" element={<CampaignPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/friends" element={<FriendsPage />} />
             <Route path="/health" element={<HealthPage />} />
