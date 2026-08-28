@@ -1,0 +1,47 @@
+[project]
+name = "earnings-radar"
+version = "0.1.0"
+description = "Autonomous earnings release detection, analysis, scoring and push notification"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "sqlalchemy>=2.0",
+    "psycopg2-binary>=2.9",
+    "apscheduler>=3.10,<4",
+    "httpx>=0.27",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "anthropic>=1.0",
+    "jinja2>=3.1",
+    "python-dateutil>=2.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+    "ruff>=0.4",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# DTZ/C408 fire on test fixtures and calendar dates where naive values are
+# intentional; the tz discipline that matters is enforced by ensure_utc().
+ignore = ["C408", "DTZ001", "DTZ011", "B008", "RUF059", "SIM102", "ISC004",
+          "RUF007", "FURB162"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
