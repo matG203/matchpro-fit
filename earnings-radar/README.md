@@ -65,7 +65,7 @@ tells you exactly which providers are live.
 Run the tests:
 
 ```bash
-.venv/bin/python -m pytest -q          # 344 tests
+.venv/bin/python -m pytest -q          # 348 tests
 .venv/bin/ruff check app tests
 ```
 
@@ -309,9 +309,11 @@ extraction, and a mismatch lowers confidence.
   response that parses to zero filings, that is treated as a format change and
   raised — an empty list would look exactly like a quiet market.
 - **Schema additions are applied automatically.** `create_all` only creates
-  missing tables, so a nullable column added to the models is `ALTER TABLE`d
-  into an existing database on startup. Anything beyond an additive change is
-  refused and logged rather than guessed at.
+  missing tables, so a column added to the models is `ALTER TABLE`d into an
+  existing database on startup — including NOT NULL columns, which are added
+  with their model default so existing rows match what new ones will get. A
+  NOT NULL column with no default is refused and logged: there is no honest
+  value for the rows already there.
 
 ## Project layout
 
@@ -331,7 +333,7 @@ app/
   catalyst/          Catalyst Sentinel: entities, dedup, novelty, classify,
                      materiality, negatives, amplification, reaction, scoring,
                      investigator, alerts, pipeline, SEC routing
-tests/               344 tests incl. earnings regression cases, the catalyst
+tests/               348 tests incl. earnings regression cases, the catalyst
                      false-positive scenarios, the live market-data wiring and
                      the delayed-feed traps
 ```

@@ -4,6 +4,29 @@ All notable changes to Earnings Radar are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project
 uses semantic versioning.
 
+## [0.3.4] — 2026-08-30
+
+### Fixed
+
+- **Every score insert failed on an existing database.** The columns added in
+  0.3.1–0.3.3 (`scoring_inputs`, `revision_reason`, `superseded`,
+  `move_observable`, `data_delay_seconds`, `data_provider`) are NOT NULL with
+  Python-side defaults. SQLAlchemy's `default=` is applied on insert and never
+  reaches the DDL, so `add_missing_columns` refused them as non-nullable — and
+  every later INSERT then named a column the table did not have:
+
+  ```
+  OperationalError: table catalyst_scores has no column named scoring_inputs
+  ```
+
+  A fresh database was fine, which is why the tests passed; only an upgraded
+  one broke. `add_missing_columns` now derives a SQL literal from the model's
+  default and adds NOT NULL columns with it, so existing rows get the same
+  value a new row would. A NOT NULL column with no default is still refused —
+  there is no honest value for the rows already there.
+- Regression test replays the real 0.3.0 → 0.3.4 upgrade on a populated
+  database and asserts the insert that used to fail now succeeds.
+
 ## [0.3.3] — 2026-08-30
 
 ### Added

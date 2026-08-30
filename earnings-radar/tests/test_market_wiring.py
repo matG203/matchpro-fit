@@ -10,7 +10,15 @@ from datetime import datetime, timedelta
 
 import httpx
 import pytest
-from sqlalchemy import Column, Float, MetaData, Table, create_engine, inspect
+from sqlalchemy import (
+    Column,
+    Float,
+    MetaData,
+    Table,
+    create_engine,
+    inspect,
+    text,
+)
 
 from app.catalyst.alerts import CatalystNotifier
 from app.catalyst.pipeline import CatalystPipeline
@@ -394,3 +402,120 @@ def test_the_polygon_adapter_reports_itself_disabled_without_a_key():
 
     assert PolygonProvider(client=httpx.Client(), api_key="").enabled() is False
     assert PolygonProvider(client=httpx.Client(), api_key="k").enabled() is True
+
+
+# ── NOT NULL columns with defaults (the v0.3.3 startup failure) ───────────────
+
+
+def test_a_not_null_column_with_a_default_is_added(tmp_path):
+    """The bug that broke a live database: `default=` is applied in Python on
+    insert, never in DDL, so the column was refused as non-nullable and every
+    later INSERT named a column the table did not have."""
+    from sqlalchemy import Boolean, Integer, String
+
+    url = f"sqlite:///{tmp_path / 'm.db'}"
+    engine = create_engine(url)
+
+    old = MetaData()
+    Table("widgets", old, Column("id", Integer, primary_key=True))
+    old.create_all(engine)
+    with engine.begin() as conn:
+        conn.execute(text("INSERT INTO widgets (id) VALUES (1)"))
+
+    new = MetaData()
+    Table("widgets", new, Column("id", Integer, primary_key=True),
+          Column("flag", Boolean, nullable=False, default=False),
+          Column("reason", String(16), nullable=False, default="initial"))
+
+    added = add_missing_columns(engine, new)
+
+    assert set(added) == {"widgets.flag", "widgets.reason"}
+    with engine.begin() as conn:
+        row = conn.execute(text("SELECT flag, reason FROM widgets")).one()
+    # The pre-existing row gets the same value a new row would.
+    assert row[0] == 0
+    assert row[1] == "initial"
+
+
+def test_a_json_column_defaulting_to_a_callable_is_added(tmp_path):
+    """`default=dict` is a callable, which needs calling to get a literal."""
+    from sqlalchemy import JSON, Integer
+
+    url = f"sqlite:///{tmp_path / 'm.db'}"
+    engine = create_engine(url)
+
+    old = MetaData()
+    Table("widgets", old, Column("id", Integer, primary_key=True))
+    old.create_all(engine)
+    with engine.begin() as conn:
+        conn.execute(text("INSERT INTO widgets (id) VALUES (1)"))
+
+    new = MetaData()
+    Table("widgets", new, Column("id", Integer, primary_key=True),
+          Column("payload", JSON, nullable=False, default=dict),
+          Column("items", JSON, nullable=False, default=list))
+
+    assert set(add_missing_columns(engine, new)) == {"widgets.payload", "widgets.items"}
+    with engine.begin() as conn:
+        row = conn.execute(text("SELECT payload, items FROM widgets")).one()
+    assert row[0] == "{}"
+    assert row[1] == "[]"
+
+
+def test_a_not_null_column_without_a_default_is_still_refused(tmp_path):
+    """No honest value exists for the rows already there."""
+    from sqlalchemy import Integer, String
+
+    url = f"sqlite:///{tmp_path / 'm.db'}"
+    engine = create_engine(url)
+
+    old = MetaData()
+    Table("widgets", old, Column("id", Integer, primary_key=True))
+    old.create_all(engine)
+
+    new = MetaData()
+    Table("widgets", new, Column("id", Integer, primary_key=True),
+          Column("required", String(16), nullable=False))
+
+    assert add_missing_columns(engine, new) == []
+    assert "required" not in {c["name"] for c in inspect(engine).get_columns("widgets")}
+
+
+def test_the_v0_3_upgrade_path_works_on_a_populated_database(db):
+    """The exact failure a live database hit: columns added in 0.3.1-0.3.3 were
+    NOT NULL, so the migration refused them, and every later INSERT named a
+    column the table did not have."""
+    from sqlalchemy import inspect as sa_inspect
+
+    from app.db import models
+    from app.db.session import get_engine
+
+    engine = get_engine()
+    added_since_0_3_0 = [
+        ("catalyst_scores", "scoring_inputs"),
+        ("catalyst_scores", "revision_reason"),
+        ("catalyst_scores", "superseded"),
+        ("market_structure_snapshots", "data_provider"),
+        ("reaction_analysis", "move_observable"),
+        ("reaction_analysis", "data_delay_seconds"),
+        ("scores", "scoring_inputs"),
+    ]
+    with engine.begin() as conn:
+        for table, column in added_since_0_3_0:
+            conn.execute(text(f"ALTER TABLE {table} DROP COLUMN {column}"))
+
+    restored = add_missing_columns(engine, models.Base.metadata)
+
+    assert set(restored) >= {f"{t}.{c}" for t, c in added_since_0_3_0}
+    for table, column in added_since_0_3_0:
+        present = {c["name"] for c in sa_inspect(engine).get_columns(table)}
+        assert column in present, f"{table}.{column} was not restored"
+
+    # And the insert that used to fail now succeeds.
+    with db.db_session() as session:
+        session.add(CatalystScore(event_id=1, model_version="1.0.0", revision=1))
+        session.flush()
+        row = session.query(CatalystScore).one()
+    assert row.scoring_inputs == {}
+    assert row.revision_reason == "initial"
+    assert row.superseded is False
