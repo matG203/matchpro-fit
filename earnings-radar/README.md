@@ -65,7 +65,7 @@ tells you exactly which providers are live.
 Run the tests:
 
 ```bash
-.venv/bin/python -m pytest -q          # 348 tests
+.venv/bin/python -m pytest -q          # 351 tests
 .venv/bin/ruff check app tests
 ```
 
@@ -333,7 +333,7 @@ app/
   catalyst/          Catalyst Sentinel: entities, dedup, novelty, classify,
                      materiality, negatives, amplification, reaction, scoring,
                      investigator, alerts, pipeline, SEC routing
-tests/               348 tests incl. earnings regression cases, the catalyst
+tests/               351 tests incl. earnings regression cases, the catalyst
                      false-positive scenarios, the live market-data wiring and
                      the delayed-feed traps
 ```

@@ -4,6 +4,20 @@ All notable changes to Earnings Radar are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project
 uses semantic versioning.
 
+## [0.3.5] — 2026-08-30
+
+### Fixed
+
+- **Halt detection was dead on plans that omit `lastTrade`.** A live Starter
+  account returns a price but no trade timestamp and no bid/ask, so
+  `quote_stale_seconds` stayed `None` and the tape-stopped check could never
+  fire — a halted stock would have been scored on a frozen price as though it
+  were live. The newest minute bar now dates the last print instead: bars stop
+  appearing when trading stops, so it is the same evidence by another route.
+- Preflight's feed-delay check falls back to the same source, so the setting the
+  whole delayed-feed design depends on is verified rather than skipped. It skips
+  only when there is nothing at all to date the feed by.
+
 ## [0.3.4] — 2026-08-30
 
 ### Fixed

@@ -330,11 +330,12 @@ class CatalystMarketDataService:
         if snapshot is not None:
             structure.spread_pct = snapshot.spread_pct()
             structure.share_price = snapshot.price
-            if snapshot.last_trade_at is not None:
+            last_print = snapshot.last_trade_at or self._newest_bar_at(ticker, now)
+            if last_print is not None:
                 # Staleness means silence *beyond* the feed's own delay. On a
                 # 15-minute plan every healthy quote is 15 minutes old, so
                 # measuring raw age would flag every stock as halted.
-                age = (now - ensure_utc(snapshot.last_trade_at)).total_seconds()
+                age = (now - ensure_utc(last_print)).total_seconds()
                 structure.quote_stale_seconds = max(
                     0.0, age - self._settings.market_data_delay_seconds)
 
@@ -361,6 +362,21 @@ class CatalystMarketDataService:
                         snapshot.day_volume, avg_volume, now)
 
         self._fill_short_interest(structure, ticker, now)
+
+    def _newest_bar_at(self, ticker: str, now: datetime) -> datetime | None:
+        """When the feed last saw this stock trade, from minute bars.
+
+        Some plans omit `lastTrade` from the snapshot entirely. Without a
+        fallback the tape-stopped check can never fire, so a halted stock would
+        be scored on a frozen price as though it were live. The newest minute
+        bar is the same evidence by another route: bars stop appearing when
+        trading stops.
+        """
+        bars = self._safe(
+            lambda: self._bars.bars(ticker, start=now - timedelta(hours=4),
+                                    end=now, timespan="minute"),
+            f"freshness bars {ticker}")
+        return ensure_utc(bars[-1].start_utc) if bars else None
 
     def _free_float(self, ticker: str) -> float | None:
         """Free float from whichever provider carries it — None if none does.

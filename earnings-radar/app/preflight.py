@@ -186,10 +186,9 @@ def _check_polygon(report: PreflightReport, settings: Settings, polygon,
                    "Check POLYGON_BASE_URL and network access")
         return
 
-    # 2. Observed delay — the setting the delayed-feed design depends on.
-    _check_delay(report, settings, snap, now)
-
-    # 3. Minute bars — the disclosure-anchored measurement needs these.
+    # 2. Minute bars — the disclosure-anchored measurement needs these, and
+    #    they also date the last print when the snapshot does not.
+    bars = []
     try:
         bars = polygon.bars(PROBE_TICKER, start=now - timedelta(days=5), end=now,
                             timespan="minute")
@@ -203,6 +202,9 @@ def _check_polygon(report: PreflightReport, settings: Settings, polygon,
     except (ProviderError, ProviderUnavailable) as exc:
         report.add("Polygon — minute bars", FAIL, str(exc),
                    "Without minute bars the move cannot be priced at disclosure")
+
+    # 3. Observed delay — the setting the delayed-feed design depends on.
+    _check_delay(report, settings, snap, now, bars)
 
     # 4. Reference data — market cap and shares outstanding.
     try:
@@ -226,24 +228,32 @@ def _check_polygon(report: PreflightReport, settings: Settings, polygon,
 
 
 def _check_delay(report: PreflightReport, settings: Settings, snap,
-                 now: datetime) -> None:
+                 now: datetime, bars: list | None = None) -> None:
     """Compare the feed's actual lag against what we told the system to expect."""
     from app.catalyst.amplification import market_session
     from app.domain.timeutil import ensure_utc
 
-    if snap.last_trade_at is None:
-        report.add("Feed delay", SKIP, "snapshot carried no trade timestamp")
+    # Some plans omit lastTrade from the snapshot; the newest minute bar dates
+    # the last print just as well, and is what the pipeline falls back to.
+    last_print = snap.last_trade_at
+    source = "last trade"
+    if last_print is None and bars:
+        last_print = bars[-1].start_utc
+        source = "newest minute bar"
+    if last_print is None:
+        report.add("Feed delay", SKIP,
+                   "no trade timestamp and no minute bars to date the feed")
         return
 
-    observed = (now - ensure_utc(snap.last_trade_at)).total_seconds()
+    observed = (now - ensure_utc(last_print)).total_seconds()
     report.observed_delay_seconds = round(observed, 1)
     configured = settings.market_data_delay_seconds
     session = market_session(now)
 
     if session == "closed":
         report.add("Feed delay", SKIP,
-                   f"market closed — last print {observed / 60:.0f} min ago tells "
-                   "us nothing about the feed's lag",
+                   f"market closed — last print {observed / 60:.0f} min ago ({source}) "
+                   "tells us nothing about the feed's lag",
                    "Re-run during market hours to confirm the setting")
         return
 
@@ -251,7 +261,7 @@ def _check_delay(report: PreflightReport, settings: Settings, snap,
     if abs(observed - configured) <= 300:
         plan = "real-time" if configured == 0 else f"{configured / 60:.0f}-minute delayed"
         report.add("Feed delay", OK,
-                   f"observed {observed / 60:.1f} min, configured "
+                   f"observed {observed / 60:.1f} min ({source}), configured "
                    f"{configured / 60:.0f} min — consistent with a {plan} plan")
         return
 

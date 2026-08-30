@@ -29,11 +29,12 @@ def settings(**overrides) -> Settings:
 
 class FakePolygon:
     def __init__(self, *, last_trade_age_minutes=15.0, short_error=None,
-                 snapshot_error=None, bars=8):
+                 snapshot_error=None, bars=8, newest_bar_age_minutes=15.0):
         self.age = last_trade_age_minutes
         self.short_error = short_error
         self.snapshot_error = snapshot_error
         self.bar_count = bars
+        self.newest_bar_age = newest_bar_age_minutes
 
     def snapshot(self, ticker):
         if self.snapshot_error:
@@ -42,9 +43,11 @@ class FakePolygon:
                         last_trade_at=NOW - timedelta(minutes=self.age))
 
     def bars(self, ticker, *, start, end, timespan="minute", multiplier=1, limit=5000):
+        """Oldest first, as the real API returns them (sort=asc)."""
         from app.providers.base import Bar
-        return [Bar(start_utc=NOW - timedelta(minutes=i), open=210.0, high=211.0,
-                    low=209.0, close=210.5, volume=1000.0)
+        newest = NOW - timedelta(minutes=self.newest_bar_age)
+        return [Bar(start_utc=newest - timedelta(minutes=self.bar_count - 1 - i),
+                    open=210.0, high=211.0, low=209.0, close=210.5, volume=1000.0)
                 for i in range(self.bar_count)]
 
     def details(self, ticker):
@@ -367,3 +370,41 @@ def test_an_env_file_that_parsed_to_nothing_is_a_failure(tmp_path):
     entry = check(report, "Configuration — .env")
     assert entry.status == FAIL
     assert "stray quotes" in entry.fix
+
+
+# ── plans that omit lastTrade from the snapshot ───────────────────────────────
+
+
+class NoTradeStampPolygon(FakePolygon):
+    """Some plans return a price but no lastTrade block at all."""
+
+    def snapshot(self, ticker):
+        snap = super().snapshot(ticker)
+        snap.last_trade_at = None
+        snap.bid = snap.ask = None
+        return snap
+
+
+def test_the_delay_is_measured_from_minute_bars_when_the_snapshot_has_no_stamp():
+    """Without this the check just skips, and the setting the whole
+    delayed-feed design depends on is never verified."""
+    report = run(polygon=NoTradeStampPolygon(bars=8))
+
+    entry = check(report, "Feed delay")
+    assert entry.status == OK
+    assert "newest minute bar" in entry.detail
+    assert report.observed_delay_seconds is not None
+
+
+def test_a_wrong_setting_is_still_caught_without_a_trade_stamp():
+    report = run(settings(market_data_delay_seconds=900.0),
+                 polygon=NoTradeStampPolygon(bars=4, newest_bar_age_minutes=0.2))
+
+    entry = check(report, "Feed delay")
+    assert entry.status == WARN
+    assert "MARKET_DATA_DELAY_SECONDS=0" in entry.fix
+
+
+def test_the_check_skips_only_when_there_is_nothing_at_all_to_date_it():
+    report = run(polygon=NoTradeStampPolygon(bars=0))
+    assert status_of(report, "Feed delay") == SKIP
