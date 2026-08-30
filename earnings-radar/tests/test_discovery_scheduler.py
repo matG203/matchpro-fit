@@ -1,7 +1,7 @@
 """Discovery, schedule generation, watchlist reconciliation and the monitor loop."""
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from app.config import Settings
 from app.db.models import AuditLog, Company, EarningsEvent, Estimate
@@ -29,7 +29,17 @@ from tests.fakes import (
     calendar_entry,
 )
 
-TODAY = date.today()
+# The service discovers over [now.date(), now.date() + 1] in **UTC**, so the
+# tests must use the same basis. `date.today()` is local, and for the hour
+# between midnight and 01:00 BST the two disagree — the reconciliation test
+# then offers the calendar a date one day outside the service's window, sees no
+# update, and fails. It passed here and failed on a UK machine at 00:20.
+#
+# Every `run()` below is given an explicit `now` for the same reason: a test
+# whose result depends on the wall clock is a test that fails at 3am for
+# reasons nobody can reproduce at 3pm.
+NOW = datetime(2026, 8, 27, 12, 0, tzinfo=UTC)
+TODAY = NOW.date()
 CONF = Settings(database_url="sqlite://")
 
 
@@ -108,7 +118,7 @@ def test_discovery_builds_watchlist_from_multiple_calendars(db):
                                             revenue=1.14e9)]),
     ]
     with db.db_session() as session:
-        count = build_discovery(calendars).run(session)
+        count = build_discovery(calendars).run(session, now=NOW)
         assert count == 2
 
         estc = (session.query(EarningsEvent).join(Company)
@@ -129,7 +139,7 @@ def test_discovery_includes_microcaps_but_tags_liquidity(db):
         ticker="TINY", name="Tiny Corp", market_cap=45e6, avg_volume=20000)})]
     calendars = [FakeCalendar("finnhub", [calendar_entry("TINY", TODAY, "finnhub")])]
     with db.db_session() as session:
-        build_discovery(calendars, profiles).run(session)
+        build_discovery(calendars, profiles).run(session, now=NOW)
         company = session.query(Company).filter_by(ticker="TINY").one()
         assert company.liquidity_tier == "MICRO"
         assert session.query(EarningsEvent).count() == 1, "microcaps are not filtered out"
@@ -144,7 +154,7 @@ def test_discovery_survives_a_failing_calendar_provider(db):
     calendars = [BrokenCalendar("broken", []),
                  FakeCalendar("fmp", [calendar_entry("ESTC", TODAY, "fmp")])]
     with db.db_session() as session:
-        count = build_discovery(calendars).run(session)
+        count = build_discovery(calendars).run(session, now=NOW)
         assert count == 1, "a dead provider must not sink discovery"
         failures = session.query(AuditLog).filter_by(action="calendar_failed").all()
         assert failures and "broken" in failures[0].detail
@@ -154,12 +164,12 @@ def test_reconciliation_updates_schedule_without_duplicating_events(db):
     tomorrow = TODAY + timedelta(days=1)
     with db.db_session() as session:
         build_discovery([FakeCalendar("finnhub", [
-            calendar_entry("ESTC", TODAY, "finnhub")])]).run(session)
+            calendar_entry("ESTC", TODAY, "finnhub")])]).run(session, now=NOW)
         assert session.query(EarningsEvent).count() == 1
 
         # A later reconciliation pass sees the company move to tomorrow, AMC.
         build_discovery([FakeCalendar("finnhub", [
-            calendar_entry("ESTC", tomorrow, "finnhub")])]).run(session)
+            calendar_entry("ESTC", tomorrow, "finnhub")])]).run(session, now=NOW)
 
         events = session.query(EarningsEvent).all()
         assert len(events) == 1, "same fiscal quarter must not create a second event"
