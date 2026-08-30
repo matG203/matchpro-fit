@@ -213,6 +213,10 @@ def health(container=Depends(get_container)) -> dict:
                                   if scheduler.last_catalyst_poll_at else None),
         "last_outcome_capture_at": (scheduler.last_outcome_capture_at.isoformat()
                                     if scheduler.last_outcome_capture_at else None),
+        "last_rescore_at": (scheduler.last_rescore_at.isoformat()
+                            if scheduler.last_rescore_at else None),
+        "market_data_delay_minutes": round(
+            container.settings.market_data_delay_seconds / 60, 1),
         "monitored_companies": monitored,
         "scored_releases": scored,
         "failed_notifications": failed_notifications,
@@ -249,6 +253,36 @@ def run_catalyst_poll(container=Depends(get_container)) -> dict:
         "articles_processed": result.articles_processed,
         "scored": result.scored,
         "alerted": result.alerted,
+        "errors": result.errors,
+    }
+
+
+@router.get("/catalyst/delay-impact")
+def catalyst_delay_impact(container=Depends(get_container)) -> dict:
+    """Whether the delayed price feed is actually costing you anything.
+
+    This is the evidence for the Starter → Advanced decision: not "did scores
+    move" but "how often did waiting change what you would have done".
+    """
+    from app.services.delay_impact import assess_delay_impact
+
+    with db_session() as session:
+        return assess_delay_impact(session, container.settings).as_dict()
+
+
+@router.post("/catalyst/rescore")
+def run_catalyst_rescore(container=Depends(get_container)) -> dict:
+    """Re-score catalysts whose delayed price data has now arrived."""
+    result = container.scheduler.run_rescore()
+    if result is None:
+        return {"ran": False, "reason": "re-scoring not configured"}
+    return {
+        "ran": True,
+        "considered": result.considered,
+        "rescored": result.rescored,
+        "still_waiting": result.still_waiting,
+        "alerted": result.alerted,
+        "changes": result.changes,
         "errors": result.errors,
     }
 

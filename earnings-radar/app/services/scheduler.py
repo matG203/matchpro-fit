@@ -35,18 +35,20 @@ _ACTIVE_STATES = (EventState.SCHEDULED.value, EventState.MONITORING.value,
 class SchedulerService:
     def __init__(self, *, settings: Settings, discovery: EarningsDiscoveryService,
                  pipeline: EarningsPipeline, monitor_tick_seconds: int = 15,
-                 catalyst_poller=None, outcomes=None):
+                 catalyst_poller=None, outcomes=None, rescore=None):
         self._settings = settings
         self._discovery = discovery
         self._pipeline = pipeline
         self._tick = monitor_tick_seconds
         self._catalyst_poller = catalyst_poller
         self._outcomes = outcomes
+        self._rescore = rescore
         self._scheduler: BackgroundScheduler | None = None
         self.last_discovery_at: datetime | None = None
         self.last_monitor_tick_at: datetime | None = None
         self.last_catalyst_poll_at: datetime | None = None
         self.last_outcome_capture_at: datetime | None = None
+        self.last_rescore_at: datetime | None = None
 
     # ── lifecycle ─────────────────────────────────────────────────────────────
 
@@ -79,16 +81,27 @@ class SchedulerService:
                 id="outcome-capture", max_instances=1, coalesce=True,
                 misfire_grace_time=600)
 
+        # On a delayed feed a catalyst is scored before its move is visible;
+        # this pass returns once the data arrives.
+        if self._rescore is not None and self._settings.rescore_enabled:
+            self._scheduler.add_job(
+                self.run_rescore,
+                IntervalTrigger(seconds=self._settings.rescore_interval_seconds),
+                id="catalyst-rescore", max_instances=1, coalesce=True,
+                misfire_grace_time=self._settings.rescore_interval_seconds)
+
         self._scheduler.start()
         logger.info(
             "scheduler started: discovery at %s Europe/London, monitor every %ss, "
-            "catalyst polling %s, outcome capture %s",
+            "catalyst polling %s, outcome capture %s, re-score %s",
             self._settings.discovery_times, self._tick,
             f"every {self._settings.catalyst_poll_seconds}s"
             if self._catalyst_poller is not None else "off",
             f"every {self._settings.outcome_capture_interval_seconds}s"
             if self._outcomes is not None and self._settings.outcome_capture_enabled
-            else "off")
+            else "off",
+            f"every {self._settings.rescore_interval_seconds}s"
+            if self._rescore is not None and self._settings.rescore_enabled else "off")
 
     def shutdown(self) -> None:
         if self._scheduler is not None:
@@ -132,6 +145,19 @@ class SchedulerService:
                 return self._outcomes.run(session, now)
         except Exception:
             logger.exception("outcome capture failed")
+            return None
+
+    def run_rescore(self, now: datetime | None = None):
+        """Revisit catalysts scored before their move was visible."""
+        if self._rescore is None:
+            return None
+        now = now or utcnow()
+        self.last_rescore_at = now
+        try:
+            with db_session() as session:
+                return self._rescore.run(session, now)
+        except Exception:
+            logger.exception("catalyst re-score failed")
             return None
 
     def monitor_tick(self, now: datetime | None = None) -> int:

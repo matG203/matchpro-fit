@@ -33,7 +33,7 @@ NOW = datetime(2026, 8, 27, 14, 30, tzinfo=UTC)
 
 
 def settings(**overrides) -> Settings:
-    base = dict(database_url="sqlite://", benchmark_ticker="SPY",
+    base = dict(database_url="sqlite://", benchmark_ticker="SPY", market_data_delay_seconds=0.0,
                 catalyst_atr_days=14, catalyst_runup_lookback_days=10)
     base.update(overrides)
     return Settings(**base)

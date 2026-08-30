@@ -81,6 +81,13 @@ class Settings(BaseSettings):
     benzinga_api_key: str = ""
 
     # Catalyst market data
+    #
+    # How far behind live the price feed is. Polygon's Stocks Starter plan is
+    # 15 minutes delayed; Advanced is real-time. Setting this to 0 is the
+    # entire Starter → Advanced upgrade — no code changes. It is not cosmetic:
+    # the system uses it to tell "the stock has not moved" apart from "we
+    # cannot see the move yet", which are opposite conclusions.
+    market_data_delay_seconds: float = 900.0
     benchmark_ticker: str = "SPY"
     catalyst_runup_lookback_days: int = 10
     catalyst_atr_days: int = 14
@@ -92,6 +99,13 @@ class Settings(BaseSettings):
     outcome_capture_enabled: bool = True
     outcome_capture_interval_seconds: int = 300
     outcome_capture_window_days: int = 5
+
+    # Re-scoring. On a delayed feed a catalyst is first scored before its move
+    # is visible; this pass revisits it once the data arrives. Harmless on a
+    # real-time feed, where there is normally nothing to revisit.
+    rescore_enabled: bool = True
+    rescore_interval_seconds: int = 120
+    rescore_window_hours: int = 6
 
     def discovery_time_list(self) -> list[tuple[int, int]]:
         out: list[tuple[int, int]] = []

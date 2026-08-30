@@ -110,6 +110,14 @@ class MarketContextInputs:
     structure: amp.MarketStructure = field(default_factory=amp.MarketStructure)
     price_captured_at: datetime | None = None
 
+    # The newest instant the price feed can actually show. On a real-time feed
+    # this is "now"; on a 15-minute delayed plan it is fifteen minutes ago.
+    observable_through: datetime | None = None
+    # False when the disclosure is newer than the feed can see. The move then
+    # reads as 0% — which must never be treated as "the stock has not moved".
+    move_observable: bool = True
+    data_delay_seconds: float = 0.0
+
 
 class CatalystPipeline:
     def __init__(self, *, settings: Settings,
@@ -359,7 +367,9 @@ class CatalystPipeline:
             minutes_since_disclosure=amp.timedelta_minutes(earliest_public, now),
             halt_state=market.structure.halt_state,
             volume_multiple=market.structure.relative_volume,
-            prices_stale=_tape_stopped(market.structure))
+            prices_stale=_tape_stopped(market.structure),
+            move_observable=market.move_observable,
+            data_delay_seconds=market.data_delay_seconds)
         amplification = amp.assess_amplification(market.structure, now)
         execution = amp.assess_execution_quality(market.structure)
         self._trace(session, correlation_id, "reaction_and_structure", stage_start,
@@ -481,7 +491,8 @@ class CatalystPipeline:
                     f"score={score.upside_catalyst_score}", event_id=event.id)
 
         self._persist(session, event, materiality, novelty, offsets, market,
-                      abnormal, room, score, certainty, investigation)
+                      abnormal, room, score, certainty, investigation,
+                      scoring_inputs)
         result.score = score.upside_catalyst_score
 
         audit.log("catalyst", "scored",
@@ -728,7 +739,8 @@ class CatalystPipeline:
                  materiality: mat.MaterialityResult, novelty: nov.NoveltyResult,
                  offsets: list[neg.Offset], market: MarketContextInputs,
                  abnormal: react.AbnormalMove, room: react.ReactionRoom,
-                 score, certainty: Certainty, investigation) -> None:
+                 score, certainty: Certainty, investigation,
+                 scoring_inputs: ScoringInputs) -> None:
         event.certainty = certainty.value
         event.half_life = HALF_LIFE_BY_TYPE.get(
             EventType(event.event_type), CatalystHalfLife.UNKNOWN).value
@@ -797,6 +809,9 @@ class CatalystPipeline:
             move_multiple=abnormal.move_multiple,
             analogue_expected_move_pct=room.analogue_expected_move_pct,
             reaction_room_score=room.score, unresolved=room.unresolved,
+            move_observable=market.move_observable,
+            data_delay_seconds=market.data_delay_seconds,
+            observable_through_utc=market.observable_through,
             notes="; ".join(room.notes + abnormal.notes)[:2000]))
 
         session.add(CatalystScore(
@@ -811,7 +826,9 @@ class CatalystPipeline:
             component_breakdown=score.component_breakdown,
             caps_applied=score.caps_applied, gates_failed=score.gates_failed,
             fundamental_impact=score.fundamental_impact,
-            immediate_reaction_potential=score.immediate_reaction_potential))
+            immediate_reaction_potential=score.immediate_reaction_potential,
+            scoring_inputs=scoring_inputs.to_dict(),
+            revision_reason="initial"))
         session.flush()
 
 

@@ -122,12 +122,26 @@ def assess_reaction_room(*, abnormal: AbnormalMove,
                          minutes_since_disclosure: float | None = None,
                          halt_state: HaltState = HaltState.NONE,
                          volume_multiple: float | None = None,
-                         prices_stale: bool = False) -> ReactionRoom:
+                         prices_stale: bool = False,
+                         move_observable: bool = True,
+                         data_delay_seconds: float = 0.0) -> ReactionRoom:
     """How much of the plausible move may remain (§39, §68).
 
     The analogue median is contextual evidence, never a price target.
     """
     notes: list[str] = []
+
+    if not move_observable:
+        # The most dangerous case on a delayed feed. The measured move is 0%,
+        # which would otherwise score as "untouched — all the room is still
+        # there" on a stock that may already have run 60%. Scoring the absence
+        # of evidence as evidence of absence would invert the signal exactly
+        # when we know least, so this is unresolved until the data arrives.
+        minutes = data_delay_seconds / 60
+        return ReactionRoom(
+            score=5.0, unresolved=True,
+            notes=[f"{minutes:.0f}-minute delayed feed — the move since disclosure is "
+                   "not visible yet; re-scored when the data arrives"])
 
     if abnormal.abnormal_move_pct is None:
         return ReactionRoom(score=5.0, unresolved=True,

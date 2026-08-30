@@ -30,7 +30,7 @@ EVENT_AT = NOW - timedelta(minutes=8)
 
 
 def settings(**overrides) -> Settings:
-    base = dict(database_url="sqlite://", benchmark_ticker="SPY",
+    base = dict(database_url="sqlite://", benchmark_ticker="SPY", market_data_delay_seconds=0.0,
                 catalyst_atr_days=14, catalyst_runup_lookback_days=10,
                 min_entity_confidence=0.7, news_max_age_seconds=86400.0,
                 catalyst_push_score=9.0, catalyst_min_confidence=6.0)

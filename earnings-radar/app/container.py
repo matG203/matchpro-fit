@@ -47,6 +47,7 @@ class CatalystStack:
     market: object | None = None
     poller: object | None = None
     outcomes: object | None = None
+    rescore: object | None = None
 
     def status(self) -> dict:
         return {
@@ -59,6 +60,7 @@ class CatalystStack:
             "polling": self.poller is not None,
             "outcome_capture": bool(
                 self.outcomes is not None and self.outcomes.available),
+            "rescore": bool(self.rescore is not None and self.rescore.available),
         }
 
 
@@ -122,7 +124,8 @@ def build_container(settings: Settings | None = None) -> Container:
 
     discovery = EarningsDiscoveryService(calendars=calendars, profiles=profiles,
                                          sec=sec, settings=settings)
-    market = MarketDataService(prices, conflict_threshold_pct=settings.price_conflict_pct)
+    market = MarketDataService(prices, conflict_threshold_pct=settings.price_conflict_pct,
+                               data_delay_seconds=settings.market_data_delay_seconds)
     monitor = ReleaseMonitorService(filings=sec, newswires=newswires)
     notifications = NotificationService(
         notifiers,
@@ -137,7 +140,8 @@ def build_container(settings: Settings | None = None) -> Container:
                                polygon=polygon, fmp=fmp, sec=sec)
     scheduler = SchedulerService(settings=settings, discovery=discovery, pipeline=pipeline,
                                  catalyst_poller=catalyst.poller,
-                                 outcomes=catalyst.outcomes)
+                                 outcomes=catalyst.outcomes,
+                                 rescore=catalyst.rescore)
 
     return Container(settings=settings, calendars=calendars, profiles=profiles,
                      prices=prices, filings=sec, newswires=newswires, notifiers=notifiers,
@@ -158,6 +162,7 @@ def _build_catalyst(settings: Settings, notifiers: list[NotifierProvider],
     from app.services.catalyst_market import CatalystMarketDataService
     from app.services.catalyst_poller import CatalystPollingService
     from app.services.outcomes import OutcomeCaptureService
+    from app.services.rescore import RescoreService
 
     if not settings.catalyst_sentinel_enabled:
         logger.info("Catalyst Sentinel disabled by configuration")
@@ -187,6 +192,12 @@ def _build_catalyst(settings: Settings, notifiers: list[NotifierProvider],
         logger.warning(
             "POLYGON_API_KEY unset — catalyst market data unavailable; move "
             "amplification and reaction room will run without price inputs")
+    elif settings.market_data_delay_seconds > 0:
+        logger.info(
+            "price feed is %.0f minutes delayed — catalysts are scored "
+            "provisionally on arrival and re-scored once the move becomes "
+            "visible; set MARKET_DATA_DELAY_SECONDS=0 on a real-time plan",
+            settings.market_data_delay_seconds / 60)
 
     notifier = CatalystNotifier(notifiers)
     pipeline = CatalystPipeline(
@@ -196,7 +207,11 @@ def _build_catalyst(settings: Settings, notifiers: list[NotifierProvider],
     poller = CatalystPollingService(pipeline=pipeline, sec=sec,
                                     news_providers=news_providers, settings=settings)
     outcomes = OutcomeCaptureService(bars=polygon, settings=settings)
+    rescore = RescoreService(
+        settings=settings, notifier=notifier,
+        market_context_fn=market_data.as_context_fn() if market_data.available else None)
 
     return CatalystStack(enabled=True, news_providers=news_providers,
                          investigator=investigator, notifier=notifier, pipeline=pipeline,
-                         market=market_data, poller=poller, outcomes=outcomes)
+                         market=market_data, poller=poller, outcomes=outcomes,
+                         rescore=rescore)

@@ -10,7 +10,8 @@ empirically, and the version bumped.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
+from typing import ClassVar
 
 from app.catalyst.enums import (
     CERTAINTY_VALUE,
@@ -121,6 +122,44 @@ class ScoringInputs:
     corroborating_primary_sources: int = 0
     claude_available: bool = True
     analogue_sample_size: int = 0
+
+    # ── persistence ───────────────────────────────────────────────────────────
+    # Stored verbatim alongside every score. Two reasons: a re-score can replace
+    # only the market-derived fields and leave Claude's judgement untouched
+    # (so no second API call), and any past score can be explained exactly
+    # rather than approximately.
+
+    _ENUM_FIELDS: ClassVar[dict[str, type]] = {
+        "event_type": EventType,
+        "certainty": Certainty,
+        "source_tier": SourceTier,
+        "half_life": CatalystHalfLife,
+    }
+
+    def to_dict(self) -> dict:
+        out: dict = {}
+        for key, value in self.__dict__.items():
+            out[key] = value.value if key in self._ENUM_FIELDS else value
+        return out
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ScoringInputs:
+        """Rebuild from stored JSON, ignoring fields this version no longer has
+        so an old row never crashes a newer scorer."""
+        known = {f.name for f in fields(cls)}
+        kwargs: dict = {}
+        for key, value in (data or {}).items():
+            if key not in known:
+                continue
+            enum_type = cls._ENUM_FIELDS.get(key)
+            if enum_type is not None and value is not None:
+                try:
+                    kwargs[key] = enum_type(value)
+                except ValueError:
+                    continue
+            else:
+                kwargs[key] = value
+        return cls(**kwargs)
 
 
 @dataclass

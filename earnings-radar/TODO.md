@@ -53,6 +53,15 @@
 - [x] Live catalysts view, detail page, pipeline timeline, calibration endpoint
 - [x] 86 tests incl. all spec false-positive scenarios
 
+## Delayed-feed support (v0.3.1) — done
+
+- [x] `MARKET_DATA_DELAY_SECONDS`; one setting is the whole Starter → Advanced move
+- [x] Staleness measured beyond the feed delay (a healthy delayed quote is not a halt)
+- [x] A not-yet-visible move is unresolved, never scored as "no move"
+- [x] Re-score pass reusing stored scoring inputs — no second Claude call
+- [x] `/api/catalyst/delay-impact` to answer the upgrade question from real data
+- [x] Earnings pipeline withholds market confirmation inside the delay window
+
 ## Catalyst Sentinel — next
 
 - [ ] **Licensed newswire adapter** (Benzinga or similar). Interface and mock are

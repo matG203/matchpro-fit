@@ -282,6 +282,16 @@ class ReactionAnalysis(Base):
     unresolved: Mapped[bool] = mapped_column(Boolean, default=False)
     notes: Mapped[str] = mapped_column(Text, default="")
 
+    # Delayed-feed bookkeeping. `move_observable` false means the score was
+    # produced before the feed could show the reaction — the re-score pass
+    # revisits exactly these, and the pair of columns is what lets us report
+    # honestly on whether a real-time plan would have bought anything.
+    move_observable: Mapped[bool] = mapped_column(Boolean, default=True)
+    data_delay_seconds: Mapped[float] = mapped_column(Float, default=0.0)
+    observable_through_utc: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True))
+    rescored_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
 
 class ClaudeInvestigation(TimestampMixin, Base):
     """Immutable record of what the model was asked and what it returned."""
@@ -324,6 +334,14 @@ class CatalystScore(TimestampMixin, Base):
     gates_failed: Mapped[list] = mapped_column(JSON, default=list)
     fundamental_impact: Mapped[float | None] = mapped_column(Float)
     immediate_reaction_potential: Mapped[float | None] = mapped_column(Float)
+
+    # Everything that went into this number, stored verbatim. Lets a re-score
+    # replace only the market-derived fields (no second Claude call), and lets
+    # any past score be explained exactly rather than approximately.
+    scoring_inputs: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Why this revision exists: "initial", "delayed_data_arrived", ...
+    revision_reason: Mapped[str] = mapped_column(String(48), default="initial")
+    superseded: Mapped[bool] = mapped_column(Boolean, default=False)
     decision_inputs: Mapped[dict] = mapped_column(JSON, default=dict)
 
     event: Mapped[CatalystEvent] = relationship(back_populates="scores")

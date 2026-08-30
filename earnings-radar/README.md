@@ -65,7 +65,7 @@ tells you exactly which providers are live.
 Run the tests:
 
 ```bash
-.venv/bin/python -m pytest -q          # 294 tests
+.venv/bin/python -m pytest -q          # 315 tests
 .venv/bin/ruff check app tests
 ```
 
@@ -89,10 +89,44 @@ Minimum useful setup:
 | `NTFY_TOPIC` | Push to your iPhone. Install the *ntfy* app, subscribe to a long random topic, put the same string here. | free |
 | `FINNHUB_API_KEY` | Earnings calendar, consensus, quotes. | free tier |
 | `FMP_API_KEY` | Second calendar/consensus/price source — the cross-check that makes the consensus band meaningful. Also the only source of **free float**. | free tier |
-| `POLYGON_API_KEY` | Real-time and extended-hours prices, minute bars, reference data, short interest. Catalyst Sentinel's Move Amplification, Reaction Room and outcome capture run on this. Without it they have no price inputs and cap themselves. | ~$29/mo |
+| `POLYGON_API_KEY` | Prices, minute bars, reference data, short interest. Move Amplification, Reaction Room and outcome capture all run on this; without it they have no price inputs and cap themselves. | $29/mo (Starter) |
 | `ANTHROPIC_API_KEY` | The qualitative analysis layer (`claude-opus-5`). Without it you get provisional deterministic scores only. | ~$0.25–0.40 per report |
 
 Optional: `PUSHOVER_USER_KEY` + `PUSHOVER_APP_TOKEN` for a second push channel.
+
+### Running on a delayed price feed
+
+Polygon's **Starter** plan ($29/mo) is 15 minutes behind; **Advanced** ($199/mo)
+is real-time. The system is built to run correctly on either, and the whole
+difference is one setting:
+
+```bash
+MARKET_DATA_DELAY_SECONDS=900   # Starter (default)
+MARKET_DATA_DELAY_SECONDS=0     # Advanced — no code changes
+```
+
+This is not cosmetic. On a delayed feed a catalyst is detected before its
+reaction is visible, and the measured move reads **0%** — which is
+indistinguishable from *"the stock hasn't moved"* unless the system knows about
+the delay. Scoring that as "untouched, all the room is still there" would
+produce a high score on a stock that has already run 60%: the signal inverted
+at exactly the moment it matters. So:
+
+- **A not-yet-visible move is never scored as no move.** Reaction Room goes
+  unresolved with a stated reason, and the score is capped for it.
+- **Every quote is 15 minutes old on Starter**, so staleness is measured as
+  silence *beyond* the feed delay — otherwise every stock would be flagged as
+  halted.
+- **Catalysts are re-scored when the data arrives** (`RESCORE_INTERVAL_SECONDS`).
+  The original analysis is reused and only the price half recomputed, so a
+  re-score costs no Claude usage. The first score is kept and marked superseded.
+- **The earnings pipeline withholds market confirmation** inside the delay
+  window rather than recording a 0% reaction as the market failing to confirm.
+
+**`/api/catalyst/delay-impact`** answers the upgrade question with your own
+data: not "did scores move" but *how often did waiting 15 minutes change what
+you would have done*. It is blunt about small samples — with eleven events it
+says so.
 
 Scoring/notification behaviour:
 
@@ -186,6 +220,8 @@ extraction, and a mismatch lowers confidence.
 | `POST /api/monitor/tick` | Run one monitor sweep now |
 | `POST /api/catalyst/poll` | Run one catalyst detection sweep now |
 | `POST /api/catalyst/outcomes/capture` | Backfill outcomes for recent catalysts now |
+| `POST /api/catalyst/rescore` | Re-score catalysts whose delayed data has arrived |
+| `/api/catalyst/delay-impact` | Is the delayed feed costing you anything? |
 
 ---
 
@@ -224,13 +260,14 @@ app/
   services/          discovery, scheduler, monitor, verification, extraction,
                      expectations, marketdata, analysis, scoring, notification,
                      pipeline, audit, catalyst_market, catalyst_poller,
-                     outcomes
+                     outcomes, rescore, delay_impact
   api/               JSON API + server-rendered dashboard
   catalyst/          Catalyst Sentinel: entities, dedup, novelty, classify,
                      materiality, negatives, amplification, reaction, scoring,
                      investigator, alerts, pipeline, SEC routing
-tests/               294 tests incl. earnings regression cases, the catalyst
-                     false-positive scenarios, and the live market-data wiring
+tests/               315 tests incl. earnings regression cases, the catalyst
+                     false-positive scenarios, the live market-data wiring and
+                     the delayed-feed traps
 ```
 
 See [TODO.md](TODO.md) for what is deferred to Phase 2/3 and

@@ -90,10 +90,13 @@ def quotes_conflict(move_a_pct: float, move_b_pct: float, threshold_pct: float) 
 
 class MarketDataService:
     def __init__(self, price_providers: list[PriceProvider], conflict_threshold_pct: float,
-                 health_cb=None):
+                 health_cb=None, data_delay_seconds: float = 0.0):
         self._providers = price_providers
         self._threshold = conflict_threshold_pct
         self._chain = FallbackChain("price", health_cb=health_cb)
+        # How far behind live the feed is. On a delayed plan a quote taken two
+        # minutes after a release still shows the pre-release price.
+        self._delay_seconds = max(0.0, data_delay_seconds)
 
     def snapshot_quote(self, ticker: str) -> Quote:
         quote, _ = self._chain.call(self._providers, "quote", ticker)
@@ -124,6 +127,17 @@ class MarketDataService:
         if ctx.pre_release_price is None:
             ctx.unresolved = True
             ctx.notes.append("no pre-release price — reaction cannot be measured")
+            return ctx
+
+        if minutes_after * 60 < self._delay_seconds:
+            # The feed still shows pre-release prices, so any quote taken now
+            # would read as a 0% reaction — and be recorded as the market
+            # declining to confirm a good report. Withhold instead: the later
+            # capture points measure it properly once the data catches up.
+            ctx.unresolved = True
+            ctx.notes.append(
+                f"{self._delay_seconds / 60:.0f}-minute delayed feed — reaction at "
+                f"+{minutes_after:.0f}m is not visible yet; market confirmation withheld")
             return ctx
 
         moves: dict[str, float] = {}

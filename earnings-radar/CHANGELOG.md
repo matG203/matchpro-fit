@@ -4,6 +4,54 @@ All notable changes to Earnings Radar are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project
 uses semantic versioning.
 
+## [0.3.1] — 2026-08-30
+
+Makes the system correct on a **delayed price feed**, so it can run on Polygon's
+Stocks Starter plan ($29/mo, 15 minutes behind) and move to Advanced ($199/mo,
+real-time) by changing one number. 315 tests pass.
+
+### Fixed
+
+Two defects that only appear on a delayed feed, both found by simulating one:
+
+- **Every stock was flagged as a possible halt.** Quote staleness was measured
+  as raw age, but on a 15-minute plan every healthy quote is 15 minutes old.
+  Staleness is now silence *beyond* the feed's own delay, so a real halt is
+  still caught (a stock silent for 25 minutes reads as 10 minutes stale) while
+  a healthy one reads as zero.
+- **A not-yet-visible move was scored as no move.** The measured move reads 0%
+  before the feed catches up. Reaction Room scored that as "untouched — all the
+  room is still there", producing a high score on a stock that had already run
+  60%: the signal inverted at exactly the moment it matters. It is now
+  explicitly unresolved, with the reason stated, and the score capped for it.
+
+### Added
+
+- `MARKET_DATA_DELAY_SECONDS` — the entire Starter → Advanced upgrade. The
+  system uses it to tell "has not moved" apart from "cannot see it yet".
+- **Re-score pass** (`app/services/rescore.py`): revisits catalysts scored
+  before their move was visible, once the data arrives. The original
+  `ScoringInputs` are stored verbatim on each score, so only the market-derived
+  half is recomputed — **no second Claude call, no extra API spend**. The first
+  score is kept and marked superseded; re-alerting reuses the existing
+  band-based deduplication, so a revision inside the same band is silent.
+- **`/api/catalyst/delay-impact`**: the evidence for the upgrade decision. Not
+  "did scores move" but how often waiting changed what you would have done —
+  alerts that would have fired sooner, and moves already gone by the time they
+  were visible. Blunt about small samples.
+- `POST /api/catalyst/rescore` to run the pass on demand; `scoring_inputs`,
+  `revision_reason` and `superseded` on `catalyst_scores`; `move_observable`,
+  `data_delay_seconds`, `observable_through_utc` and `rescored_at_utc` on
+  `reaction_analysis`.
+
+### Changed
+
+- The **earnings** pipeline is delay-aware too: a reaction captured inside the
+  delay window is withheld as unresolved rather than recorded as a 0% reaction,
+  which would have read as the market declining to confirm a good report.
+- Price reasoning runs against what the feed can actually show; no "current"
+  price predating the disclosure is published.
+
 ## [0.3.0] — 2026-08-30
 
 Catalyst Sentinel stops running on injected test data and starts running on live

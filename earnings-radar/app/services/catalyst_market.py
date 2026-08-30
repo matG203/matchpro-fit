@@ -198,9 +198,20 @@ class CatalystMarketDataService:
         now = ensure_utc(now)
         hints = hints or CompanyHints()
         session = amp.market_session(now)
+        delay = max(0.0, float(self._settings.market_data_delay_seconds))
+        observable_through = now - timedelta(seconds=delay)
+
         context = MarketContextInputs(
             structure=amp.MarketStructure(session=session, halt_state=HaltState.UNKNOWN),
-            price_captured_at=now)
+            price_captured_at=now,
+            observable_through=observable_through,
+            data_delay_seconds=delay)
+
+        if event_at is not None:
+            # The move is visible only once the feed can show a print made
+            # after the disclosure. Until then a 0% reading means "we cannot
+            # see it yet", not "it has not moved" — opposite conclusions.
+            context.move_observable = observable_through > ensure_utc(event_at)
 
         if not self.available:
             return context
@@ -213,9 +224,17 @@ class CatalystMarketDataService:
                         self._settings.catalyst_runup_lookback_days + 6)),
             f"daily bars {ticker}") or []
 
-        self._fill_prices(context, ticker, now, event_at, snapshot, daily)
-        self._fill_comparators(context, now, event_at, hints)
+        # Price reasoning runs against what the feed can actually show, not
+        # against wall-clock now; structure reasoning still needs the real now
+        # to judge staleness and session.
+        self._fill_prices(context, ticker, observable_through, event_at, snapshot, daily)
+        self._fill_comparators(context, observable_through, event_at, hints)
         self._fill_structure(context, ticker, now, snapshot, details, daily)
+
+        if not context.move_observable:
+            # Do not publish a "current" price that predates the news; it would
+            # produce a 0% move that looks like a measurement.
+            context.price_now = None
         return context
 
     def as_context_fn(self):
@@ -230,8 +249,9 @@ class CatalystMarketDataService:
 
     # ── price points ──────────────────────────────────────────────────────────
 
-    def _fill_prices(self, context: MarketContextInputs, ticker: str, now: datetime,
-                     event_at: datetime | None, snapshot, daily: list[Bar]) -> None:
+    def _fill_prices(self, context: MarketContextInputs, ticker: str,
+                     observable_through: datetime, event_at: datetime | None,
+                     snapshot, daily: list[Bar]) -> None:
         if snapshot is not None and snapshot.price:
             context.price_now = snapshot.price
 
@@ -239,7 +259,7 @@ class CatalystMarketDataService:
             return
         event_at = ensure_utc(event_at)
 
-        minutes = self._intraday(ticker, event_at, now)
+        minutes = self._intraday(ticker, event_at, observable_through)
         context.price_before = price_at(minutes, event_at, completed_only=True)
         if context.price_before is None and snapshot is not None:
             # Before the first print of the day there is no intraday bar to use;
@@ -253,7 +273,8 @@ class CatalystMarketDataService:
         window = [b for b in daily if ensure_utc(b.start_utc) <= event_at][-lookback:]
         context.pre_event_runup_pct = runup_pct(window, context.price_before)
 
-    def _intraday(self, ticker: str, event_at: datetime, now: datetime) -> list[Bar]:
+    def _intraday(self, ticker: str, event_at: datetime,
+                  observable_through: datetime) -> list[Bar]:
         """Minute bars spanning the disclosure, with a margin either side.
 
         The margin matters: a stock that had not traded for twenty minutes when
@@ -261,12 +282,13 @@ class CatalystMarketDataService:
         before it is the correct baseline.
         """
         start = event_at - timedelta(hours=6)
-        end = now + timedelta(minutes=1)
+        end = observable_through + timedelta(minutes=1)
         return self._safe(
             lambda: self._bars.bars(ticker, start=start, end=end, timespan="minute"),
             f"minute bars {ticker}") or []
 
-    def _fill_comparators(self, context: MarketContextInputs, now: datetime,
+    def _fill_comparators(self, context: MarketContextInputs,
+                          observable_through: datetime,
                           event_at: datetime | None, hints: CompanyHints) -> None:
         if event_at is None:
             return
@@ -274,16 +296,16 @@ class CatalystMarketDataService:
 
         benchmark = self._settings.benchmark_ticker
         if benchmark:
-            before, after = self._window_prices(benchmark, event_at, now)
+            before, after = self._window_prices(benchmark, event_at, observable_through)
             context.benchmark_before, context.benchmark_now = before, after
 
         etf = sector_etf(hints.sector, hints.industry)
         if etf and etf != benchmark:
-            before, after = self._window_prices(etf, event_at, now)
+            before, after = self._window_prices(etf, event_at, observable_through)
             context.sector_before, context.sector_now = before, after
 
     def _window_prices(self, ticker: str, event_at: datetime,
-                       now: datetime) -> tuple[float | None, float | None]:
+                       observable_through: datetime) -> tuple[float | None, float | None]:
         """(price at the event, price now) for a comparator instrument.
 
         Both come from the same bar series, so the two ends of the comparison
@@ -292,7 +314,8 @@ class CatalystMarketDataService:
         """
         bars = self._safe(
             lambda: self._bars.bars(ticker, start=event_at - timedelta(hours=6),
-                                    end=now + timedelta(minutes=1), timespan="minute"),
+                                    end=observable_through + timedelta(minutes=1),
+                                    timespan="minute"),
             f"comparator bars {ticker}") or []
         if not bars:
             return None, None
@@ -308,8 +331,12 @@ class CatalystMarketDataService:
             structure.spread_pct = snapshot.spread_pct()
             structure.share_price = snapshot.price
             if snapshot.last_trade_at is not None:
+                # Staleness means silence *beyond* the feed's own delay. On a
+                # 15-minute plan every healthy quote is 15 minutes old, so
+                # measuring raw age would flag every stock as halted.
+                age = (now - ensure_utc(snapshot.last_trade_at)).total_seconds()
                 structure.quote_stale_seconds = max(
-                    0.0, (now - ensure_utc(snapshot.last_trade_at)).total_seconds())
+                    0.0, age - self._settings.market_data_delay_seconds)
 
         if details is not None:
             structure.market_cap = details.market_cap
