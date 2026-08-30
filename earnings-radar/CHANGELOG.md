@@ -18,6 +18,13 @@ uses semantic versioning.
   move you cannot see yet as no move. The opposite mistake is a warning: merely
   wasteful. The check is skipped when the market is closed, where a stale print
   proves nothing.
+- Preflight reports which `.env` was read and which keys came out of it,
+  masked to four characters either end. This answers "is the key definitely in
+  there" without opening the file, and names the two failures that are
+  indistinguishable from a wrong key: Notepad saving `.env.txt`, and running
+  from the wrong folder.
+- `start.bat`: runs preflight, keeps Windows awake while open, starts the app,
+  and restores the normal power settings on exit.
 - `POLYGON_BASE_URL` — Polygon rebranded to Massive in July 2026 and
   `api.polygon.io` still serves the same API with the same keys, but a future
   endpoint move is now a settings change rather than a code change.

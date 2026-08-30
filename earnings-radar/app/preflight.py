@@ -88,12 +88,13 @@ class PreflightReport:
 
 def run_preflight(settings: Settings | None = None, *,
                   polygon=None, fmp=None, sec=None, notifiers=None,
-                  now: datetime | None = None) -> PreflightReport:
+                  now: datetime | None = None, cwd=None) -> PreflightReport:
     """One real call per capability. Providers are injectable for testing."""
     settings = settings or get_settings()
     now = now or datetime.now(UTC)
     report = PreflightReport(configured_delay_seconds=settings.market_data_delay_seconds)
 
+    _check_config(report, settings, cwd=cwd)
     _check_polygon(report, settings, polygon, now)
     _check_float(report, settings, fmp)
     _check_sec(report, settings, sec)
@@ -103,6 +104,59 @@ def run_preflight(settings: Settings | None = None, *,
 
 
 # ── individual checks ─────────────────────────────────────────────────────────
+
+
+def _mask(value: str) -> str:
+    """Enough to recognise a key, never enough to leak one."""
+    if not value:
+        return "not set"
+    if len(value) <= 8:
+        return "set (short)"
+    return f"set — {value[:4]}…{value[-4:]} ({len(value)} chars)"
+
+
+def _check_config(report: PreflightReport, settings: Settings,
+                  cwd: object | None = None) -> None:
+    """Which .env was actually read, and what did it contain?
+
+    Worth its own check because the common failures are invisible: Notepad
+    saves `.env.txt` unless you force it, and running from the wrong folder
+    means no `.env` is found at all. Both look like "every key is missing",
+    which is easy to misread as the keys being wrong.
+    """
+    from pathlib import Path
+
+    root = Path(cwd) if cwd is not None else Path.cwd()
+    env_file = root / ".env"
+    keys = {
+        "ANTHROPIC_API_KEY": settings.anthropic_api_key,
+        "POLYGON_API_KEY": settings.polygon_api_key,
+        "FMP_API_KEY": settings.fmp_api_key,
+        "NTFY_TOPIC": settings.ntfy_topic,
+    }
+    loaded = [name for name, value in keys.items() if value]
+
+    if not env_file.exists():
+        decoys = sorted(p.name for p in root.glob(".env.*")
+                        if p.name in {".env.txt", ".env.text"})
+        hint = (f"found {decoys[0]} instead — Notepad appended .txt; "
+                f'rename it to .env (in Explorer: View → File name extensions)'
+                if decoys else
+                f"no .env in {root} — are you running from the project folder?")
+        report.add("Configuration — .env", FAIL,
+                   f"no .env file was read; {len(loaded)} keys are set from the "
+                   "environment", hint)
+        return
+
+    detail = "; ".join(f"{name} {_mask(value)}" for name, value in keys.items())
+    if not loaded:
+        report.add("Configuration — .env", FAIL,
+                   f"{env_file} exists but no keys were read from it",
+                   "Check for stray quotes or spaces: KEY=value, not KEY = \"value\"")
+        return
+
+    report.add("Configuration — .env", OK, f"read {env_file}")
+    report.add("Configuration — keys", OK, detail)
 
 
 def _check_polygon(report: PreflightReport, settings: Settings, polygon,

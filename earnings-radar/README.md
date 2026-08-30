@@ -65,7 +65,7 @@ tells you exactly which providers are live.
 Run the tests:
 
 ```bash
-.venv/bin/python -m pytest -q          # 339 tests
+.venv/bin/python -m pytest -q          # 344 tests
 .venv/bin/ruff check app tests
 ```
 
@@ -117,7 +117,36 @@ one direction:
            see yet is scored as no move
 ```
 
+It reports which `.env` was actually read and which keys came out of it, masked:
+
+```
+[  OK  ] Configuration — .env
+         read C:\Users\you\earnings-radar\.env
+[  OK  ] Configuration — keys
+         ANTHROPIC_API_KEY set — sk-a…5678 (108 chars); POLYGON_API_KEY set — …
+```
+
+That answers "is the key definitely in there" without opening Notepad, and
+names the two failures that look identical to a wrong key: **Notepad saving
+`.env.txt`** (turn on File name extensions in Explorer's View menu), and
+running from the wrong folder.
+
 Also at `GET /api/preflight`. Exit code is 0 when nothing is blocking.
+
+### Leaving it running
+
+```
+start.bat
+```
+
+Double-click it, or run it from PowerShell in the project folder. It runs
+preflight first, asks Windows not to sleep while it is open, starts the app,
+and restores your normal power settings on exit. Closing the window stops the
+system.
+
+Catalyst detection sweeps every 30 seconds around the clock, so the machine
+staying awake is the point — a sleeping laptop misses everything in between,
+not just an evening.
 
 ### Running on a delayed price feed
 
@@ -302,7 +331,7 @@ app/
   catalyst/          Catalyst Sentinel: entities, dedup, novelty, classify,
                      materiality, negatives, amplification, reaction, scoring,
                      investigator, alerts, pipeline, SEC routing
-tests/               339 tests incl. earnings regression cases, the catalyst
+tests/               344 tests incl. earnings regression cases, the catalyst
                      false-positive scenarios, the live market-data wiring and
                      the delayed-feed traps
 ```

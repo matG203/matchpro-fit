@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from app.config import Settings
 from app.preflight import FAIL, OK, SKIP, WARN, PreflightReport, run_preflight
 from app.providers.base import ProviderError, ProviderUnavailable, ShortInterest, Snapshot
@@ -85,11 +87,30 @@ class FakeNotifier:
         return self._on
 
 
-def run(conf=None, **kwargs) -> PreflightReport:
+@pytest.fixture(scope="module")
+def env_dir(tmp_path_factory):
+    """A folder that looks correctly configured, so the provider checks can be
+    tested without the .env check failing first."""
+    path = tmp_path_factory.mktemp("configured")
+    (path / ".env").write_text("ANTHROPIC_API_KEY=sk-ant-abcd1234efgh5678\n")
+    return path
+
+
+def run(conf=None, *, cwd=None, **kwargs) -> PreflightReport:
     defaults = dict(polygon=FakePolygon(), fmp=FakeFmp(), sec=FakeSec(),
                     notifiers=[FakeNotifier()], now=NOW)
     defaults.update(kwargs)
-    return run_preflight(conf or settings(), **defaults)
+    return run_preflight(conf or settings(), cwd=cwd or _ENV_DIR[0], **defaults)
+
+
+# Set by the autouse fixture below so every `run()` sees a valid .env folder.
+_ENV_DIR: list = [None]
+
+
+@pytest.fixture(autouse=True)
+def _use_env_dir(env_dir):
+    _ENV_DIR[0] = env_dir
+    yield
 
 
 def status_of(report: PreflightReport, name: str) -> str:
@@ -162,7 +183,8 @@ def test_a_quiet_minute_is_not_reported_as_a_wrong_setting():
 
 def test_a_missing_polygon_key_blocks():
     report = run_preflight(settings(polygon_api_key=""), fmp=FakeFmp(),
-                           sec=FakeSec(), notifiers=[FakeNotifier()], now=NOW)
+                           sec=FakeSec(), notifiers=[FakeNotifier()], now=NOW,
+                           cwd=_ENV_DIR[0])
     assert status_of(report, "Polygon — API key") == FAIL
     assert report.ready is False
 
@@ -274,3 +296,74 @@ def test_the_polygon_base_url_is_configurable_for_the_massive_rebrand():
     provider.snapshot("AAPL")
 
     assert seen["url"].startswith("https://api.massive.com/v2/snapshot")
+
+
+# ── configuration: the failures that look like missing keys ───────────────────
+
+
+def test_a_present_env_file_reports_which_keys_were_read(tmp_path):
+    from app.preflight import _check_config
+
+    (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=sk-ant-abcd1234efgh5678\n")
+    report = PreflightReport()
+    _check_config(report, settings(anthropic_api_key="sk-ant-abcd1234efgh5678"),
+                  cwd=tmp_path)
+
+    assert status_of(report, "Configuration — .env") == OK
+    entry = check(report, "Configuration — keys")
+    assert "ANTHROPIC_API_KEY set — sk-a…5678" in entry.detail
+
+
+def test_the_key_is_never_printed_in_full(tmp_path):
+    """A preflight report is the sort of thing that gets pasted into chat."""
+    from app.preflight import _check_config
+
+    secret = "sk-ant-SUPERSECRETVALUE123456"
+    (tmp_path / ".env").write_text(f"ANTHROPIC_API_KEY={secret}\n")
+    report = PreflightReport()
+    _check_config(report, settings(anthropic_api_key=secret), cwd=tmp_path)
+
+    assert secret not in report.render()
+    assert "SUPERSECRET" not in report.render()
+
+
+def test_the_notepad_dot_txt_trap_is_named_explicitly(tmp_path):
+    """Notepad silently saves .env.txt, which loads nothing and looks exactly
+    like every key being wrong."""
+    from app.preflight import _check_config
+
+    (tmp_path / ".env.txt").write_text("ANTHROPIC_API_KEY=x\n")
+    report = PreflightReport()
+    _check_config(report, settings(anthropic_api_key="", polygon_api_key="",
+                                   fmp_api_key="", ntfy_topic=""), cwd=tmp_path)
+
+    entry = check(report, "Configuration — .env")
+    assert entry.status == FAIL
+    assert ".env.txt" in entry.fix
+    assert "File name extensions" in entry.fix
+
+
+def test_running_from_the_wrong_folder_is_named(tmp_path):
+    from app.preflight import _check_config
+
+    report = PreflightReport()
+    _check_config(report, settings(anthropic_api_key="", polygon_api_key="",
+                                   fmp_api_key="", ntfy_topic=""), cwd=tmp_path)
+
+    entry = check(report, "Configuration — .env")
+    assert entry.status == FAIL
+    assert "project folder" in entry.fix
+
+
+def test_an_env_file_that_parsed_to_nothing_is_a_failure(tmp_path):
+    """A file full of KEY = "value" reads as empty and needs its own message."""
+    from app.preflight import _check_config
+
+    (tmp_path / ".env").write_text('ANTHROPIC_API_KEY = "x"\n')
+    report = PreflightReport()
+    _check_config(report, settings(anthropic_api_key="", polygon_api_key="",
+                                   fmp_api_key="", ntfy_topic=""), cwd=tmp_path)
+
+    entry = check(report, "Configuration — .env")
+    assert entry.status == FAIL
+    assert "stray quotes" in entry.fix
