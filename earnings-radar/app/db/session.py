@@ -84,7 +84,12 @@ def literal_default(column) -> str | None:
         return None
 
     if isinstance(value, bool):
-        return "1" if value else "0"
+        # TRUE/FALSE, not 1/0. PostgreSQL rejects an integer literal as a
+        # boolean default ("column is of type boolean but default expression
+        # is of type integer") while SQLite accepts it happily — so this is a
+        # bug that cannot appear in local testing and cannot NOT appear on a
+        # hosted Postgres. Both engines accept the keywords.
+        return "TRUE" if value else "FALSE"
     if isinstance(value, (int, float)):
         return repr(value)
     if isinstance(value, str):

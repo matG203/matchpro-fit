@@ -379,6 +379,50 @@ def test_running_the_migration_twice_changes_nothing(tmp_path):
     assert add_missing_columns(engine, meta) == []
 
 
+def test_a_boolean_default_is_rendered_as_a_boolean_not_an_integer():
+    """Found by running the migration against a real PostgreSQL.
+
+    `DEFAULT 0` on a BOOLEAN column is accepted by SQLite and rejected by
+    PostgreSQL — "column is of type boolean but default expression is of type
+    integer". So every local test passed while the upgrade path on a hosted
+    database would have silently failed for `catalyst_scores.superseded` and
+    `reaction_analysis.move_observable`, and the next INSERT would have named
+    a column the table did not have. Both engines accept the keywords.
+    """
+    from sqlalchemy import Boolean, Column
+
+    from app.db.session import literal_default
+
+    assert literal_default(Column("flag", Boolean, default=False)) == "FALSE"
+    assert literal_default(Column("flag", Boolean, default=True)) == "TRUE"
+    # Integers must still render as integers — bool is a subclass of int, so
+    # the order of those isinstance checks is load-bearing.
+    from sqlalchemy import Integer
+    assert literal_default(Column("n", Integer, default=0)) == "0"
+    assert literal_default(Column("n", Integer, default=1)) == "1"
+
+
+def test_a_boolean_column_survives_the_real_migration(tmp_path):
+    """The same path end to end, on the engine the test suite can reach."""
+    from sqlalchemy import Boolean
+
+    url = f"sqlite:///{tmp_path / 'b.db'}"
+    engine = create_engine(url)
+
+    old = MetaData()
+    Table("widgets", old, Column("id", Float, primary_key=True))
+    old.create_all(engine)
+
+    new = MetaData()
+    Table("widgets", new, Column("id", Float, primary_key=True),
+          Column("flag", Boolean, nullable=False, default=False))
+
+    assert add_missing_columns(engine, new) == ["widgets.flag"]
+    with engine.begin() as conn:
+        conn.execute(text("INSERT INTO widgets (id) VALUES (1.0)"))
+        assert conn.execute(text("SELECT flag FROM widgets")).scalar() in (0, False)
+
+
 def test_a_non_nullable_addition_is_refused_rather_than_guessed_at(tmp_path):
     """Filling a NOT NULL column needs a decision about existing rows that
     only a hand-written migration can make."""
