@@ -52,6 +52,75 @@ class Quote:
 
 
 @dataclass
+class Bar:
+    """One OHLCV bar. `start_utc` is the bar's opening timestamp."""
+
+    start_utc: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float = 0.0
+    vwap: float | None = None
+    trades: int | None = None
+
+
+@dataclass
+class Snapshot:
+    """Everything a single snapshot call can tell us about a ticker right now.
+
+    Any field the provider does not supply stays None — no substitutions.
+    """
+
+    ticker: str
+    price: float | None = None
+    prev_close: float | None = None
+    day_volume: float | None = None
+    day_open: float | None = None
+    day_high: float | None = None
+    day_low: float | None = None
+    bid: float | None = None
+    ask: float | None = None
+    last_trade_at: datetime | None = None
+    last_quote_at: datetime | None = None
+    provider: str = ""
+
+    def spread_pct(self) -> float | None:
+        if not self.bid or not self.ask or self.ask <= 0 or self.bid <= 0:
+            return None
+        if self.ask < self.bid:          # crossed book — not a usable spread
+            return None
+        mid = (self.ask + self.bid) / 2
+        return round((self.ask - self.bid) / mid * 100, 4)
+
+
+@dataclass
+class TickerDetails:
+    """Reference data. `free_float_shares` is deliberately separate from
+    `shares_outstanding` — they are not interchangeable (§43)."""
+
+    ticker: str
+    name: str = ""
+    market_cap: float | None = None
+    shares_outstanding: float | None = None
+    free_float_shares: float | None = None
+    primary_exchange: str = ""
+    sic_description: str = ""
+    active: bool = True
+    provider: str = ""
+
+
+@dataclass
+class ShortInterest:
+    ticker: str
+    settlement_date: date | None
+    short_interest_shares: float | None = None
+    avg_daily_volume: float | None = None
+    days_to_cover: float | None = None
+    provider: str = ""
+
+
+@dataclass
 class FilingHit:
     ticker: str
     form_type: str             # 8-K, 6-K, 10-Q, ...
@@ -129,6 +198,40 @@ class PriceProvider(abc.ABC):
     def daily_closes(self, ticker: str, days: int) -> list[float]:
         """Oldest→newest closes; optional (used for pre-earnings run)."""
         raise ProviderUnavailable(f"{self.name} has no historical closes")
+
+
+class BarProvider(abc.ABC):
+    """Intraday and daily bars — needed to price an event at the moment it
+    became public rather than at whatever the current quote happens to be."""
+
+    name: str = "bars"
+
+    @abc.abstractmethod
+    def bars(self, ticker: str, *, start: datetime, end: datetime,
+             timespan: str = "minute", multiplier: int = 1,
+             limit: int = 5000) -> list[Bar]: ...
+
+    @abc.abstractmethod
+    def daily_bars(self, ticker: str, days: int) -> list[Bar]: ...
+
+
+class MarketStructureProvider(abc.ABC):
+    """Reference and structure data used by Move Amplification (§42-47)."""
+
+    name: str = "structure"
+
+    @abc.abstractmethod
+    def snapshot(self, ticker: str) -> Snapshot: ...
+
+    @abc.abstractmethod
+    def details(self, ticker: str) -> TickerDetails: ...
+
+    def short_interest(self, ticker: str) -> ShortInterest:
+        raise ProviderUnavailable(f"{self.name} has no short-interest feed")
+
+    def free_float_shares(self, ticker: str) -> float | None:
+        """None means unknown. Never return shares outstanding here."""
+        return None
 
 
 class FilingProvider(abc.ABC):

@@ -4,6 +4,85 @@ All notable changes to Earnings Radar are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project
 uses semantic versioning.
 
+## [0.3.0] — 2026-08-30
+
+Catalyst Sentinel stops running on injected test data and starts running on live
+prices. 294 tests pass; Earnings Sentinel is unchanged.
+
+### Added
+
+**Polygon.io adapter** (`app/providers/polygon.py`)
+- Snapshots carrying last trade, previous close, day aggregate and bid/ask, with
+  an extended-hours fallback to the last minute bar — before the open there is
+  no day aggregate, and the regular-session close would be a stale answer.
+- Minute and daily aggregate bars; reference data; short interest with its
+  settlement date; market status.
+- `403` is treated as permanent (wrong plan) and `429`/`5xx` as retryable, so a
+  missing entitlement does not burn the retry budget.
+
+**Live market context** (`app/services/catalyst_market.py`)
+- Prices the event at the moment it became public, from the last minute bar that
+  *closed* before the disclosure. The bar the news breaks in already contains the
+  reaction; using its close would have erased most of every move.
+- Benchmark and sector-ETF comparators measured over the identical window, so an
+  abnormal move is genuinely company-specific.
+- ATR from true range (so overnight gaps count), realised volatility, relative
+  volume, spread, and free float.
+- Every field independently guarded: a missing short-interest entitlement leaves
+  the price analysis intact.
+
+**Continuous detection** (`app/services/catalyst_poller.py`)
+- EDGAR's latest-filings feed as a firehose: one request names every filer, and
+  only watched companies get a second call for item codes and documents. A sweep
+  over a 400-name universe is typically one request.
+- 8-K Item 2.02 and the periodic reports are handed to Earnings Sentinel rather
+  than double-scored.
+- Form 3/4/5 and 13G are routed on metadata without downloading the document.
+- A full response that parses to zero filings is raised as a format change, not
+  reported as a quiet market.
+
+**Outcome capture** (`app/services/outcomes.py`)
+- Returns at +1m/+5m/+15m/+30m/+60m, close, next open and +1d, measured from the
+  disclosure price and benchmark-adjusted, plus MFE/MAE.
+- Backfilled from historical bars rather than sampled live, so nothing depends on
+  the process being awake at a particular second; incremental and idempotent.
+- Completed events populate `historical_analogues`, which is the only route by
+  which Reaction Room ever stops guessing.
+
+**Schema**
+- `market_structure_snapshots` gains `short_percent_shares_outstanding`,
+  `quote_stale_seconds` and `data_provider`.
+- `init_db` now adds nullable columns that exist in the models but not in the
+  database. `create_all` only creates missing *tables*, so without this an
+  existing local database would break on the next insert.
+
+### Changed
+
+- Short interest may now be expressed against shares outstanding when free float
+  is unavailable. It is stored in its own column, weighted at 60% confidence and
+  labelled in the notes — it flatters the stock, so it is never relabelled as
+  short interest of float.
+- A stopped tape during regular hours now zeroes Execution Quality and marks
+  Reaction Room unresolved. This is reported as staleness rather than as a halt:
+  the consequence is identical, but we do not claim to know the reason.
+- `market_context_fn` receives the disclosure time and the company's sector.
+- Polygon leads the price fallback chain when configured.
+
+### Fixed
+
+- The EDGAR feed's title regex split on a bare hyphen, which would have dropped
+  every form containing one — 8-K, 10-Q, S-1, SC 13D/A, very nearly everything.
+- `realised_volatility_pct` used `zip(..., strict=True)` on deliberately offset
+  sequences and so always raised.
+
+### Notes
+
+- Still no automated trading.
+- The live EDGAR latest-filings feed could not be reached from the build
+  environment (network policy blocks sec.gov), so its parsing is verified against
+  a recorded fixture rather than a live response. Worth watching on the first
+  real run — the format-change guard will say so loudly if the shape differs.
+
 ## [0.2.0] — 2026-08-29
 
 Adds **Catalyst Sentinel**, a second pipeline for non-earnings catalysts, under

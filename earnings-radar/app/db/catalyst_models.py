@@ -227,6 +227,9 @@ class MarketStructureSnapshot(Base):
     spread_pct: Mapped[float | None] = mapped_column(Float)
 
     short_percent_float: Mapped[float | None] = mapped_column(Float)
+    # Fallback basis when free float is unavailable — kept in its own column so
+    # a weaker denominator can never be mistaken for the real one (§43).
+    short_percent_shares_outstanding: Mapped[float | None] = mapped_column(Float)
     days_to_cover: Mapped[float | None] = mapped_column(Float)
     short_interest_as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     short_interest_stale_days: Mapped[float | None] = mapped_column(Float)
@@ -237,7 +240,9 @@ class MarketStructureSnapshot(Base):
 
     session: Mapped[str] = mapped_column(String(16), default="unknown")
     halt_state: Mapped[str] = mapped_column(String(24), default="UNKNOWN")
+    quote_stale_seconds: Mapped[float | None] = mapped_column(Float)
     missing_inputs: Mapped[list] = mapped_column(JSON, default=list)
+    data_provider: Mapped[str] = mapped_column(String(32), default="")
 
 
 class CatalystPriceSnapshot(Base):

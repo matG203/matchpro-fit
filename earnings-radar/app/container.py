@@ -21,6 +21,7 @@ from app.providers.finnhub import FinnhubProvider
 from app.providers.fmp import FmpProvider
 from app.providers.newswire import RssNewswireProvider
 from app.providers.notifiers import NtfyNotifier, PushoverNotifier
+from app.providers.polygon import PolygonProvider
 from app.providers.sec_edgar import SecEdgarProvider
 from app.services.analysis import EarningsAnalysisService
 from app.services.discovery import EarningsDiscoveryService
@@ -43,6 +44,9 @@ class CatalystStack:
     investigator: object | None = None
     notifier: object | None = None
     pipeline: object | None = None
+    market: object | None = None
+    poller: object | None = None
+    outcomes: object | None = None
 
     def status(self) -> dict:
         return {
@@ -51,6 +55,10 @@ class CatalystStack:
             "investigator": self.investigator is not None,
             "notification_channels": (
                 self.notifier.channels if self.notifier is not None else []),
+            "market_data": bool(self.market is not None and self.market.available),
+            "polling": self.poller is not None,
+            "outcome_capture": bool(
+                self.outcomes is not None and self.outcomes.available),
         }
 
 
@@ -77,6 +85,7 @@ class Container:
             "sec_edgar": self.filings is not None,
             "finnhub": any(p.name == "finnhub" for p in self.calendars),
             "fmp": any(p.name == "fmp" for p in self.calendars),
+            "polygon": any(p.name == "polygon" for p in self.prices),
             "newswire_rss": bool(self.newswires),
             "anthropic": self.analysis is not None,
             "notifiers": [n.name for n in self.notifiers if n.enabled()],
@@ -89,10 +98,13 @@ def build_container(settings: Settings | None = None) -> Container:
 
     finnhub = FinnhubProvider() if settings.finnhub_api_key else None
     fmp = FmpProvider() if settings.fmp_api_key else None
+    polygon = PolygonProvider() if settings.polygon_api_key else None
 
     calendars: list[EarningsCalendarProvider] = [p for p in (finnhub, fmp) if p]
     profiles: list[ProfileProvider] = [p for p in (fmp, finnhub) if p]
-    prices: list[PriceProvider] = [p for p in (finnhub, fmp) if p]
+    # Polygon leads the price chain: real-time and extended-hours quotes matter
+    # most precisely when the free feeds are stalest.
+    prices: list[PriceProvider] = [p for p in (polygon, finnhub, fmp) if p]
     if not calendars:
         logger.warning("no earnings-calendar provider configured — discovery will be empty")
 
@@ -120,9 +132,12 @@ def build_container(settings: Settings | None = None) -> Container:
     pipeline = EarningsPipeline(settings=settings, monitor=monitor, filings=sec,
                                 market=market, analysis=analysis,
                                 notifications=notifications)
-    scheduler = SchedulerService(settings=settings, discovery=discovery, pipeline=pipeline)
 
-    catalyst = _build_catalyst(settings, notifiers, analysis is not None)
+    catalyst = _build_catalyst(settings, notifiers, analysis is not None,
+                               polygon=polygon, fmp=fmp, sec=sec)
+    scheduler = SchedulerService(settings=settings, discovery=discovery, pipeline=pipeline,
+                                 catalyst_poller=catalyst.poller,
+                                 outcomes=catalyst.outcomes)
 
     return Container(settings=settings, calendars=calendars, profiles=profiles,
                      prices=prices, filings=sec, newswires=newswires, notifiers=notifiers,
@@ -132,13 +147,17 @@ def build_container(settings: Settings | None = None) -> Container:
 
 
 def _build_catalyst(settings: Settings, notifiers: list[NotifierProvider],
-                    llm_available: bool) -> CatalystStack:
+                    llm_available: bool, *, polygon=None, fmp=None,
+                    sec=None) -> CatalystStack:
     """Assemble Catalyst Sentinel. Runs with a mock news feed when no wire is
     configured, so the subsystem is exercisable without credentials."""
     from app.catalyst.alerts import CatalystNotifier
     from app.catalyst.investigator import CatalystInvestigator
     from app.catalyst.pipeline import CatalystPipeline
     from app.providers.news import MockNewsProvider
+    from app.services.catalyst_market import CatalystMarketDataService
+    from app.services.catalyst_poller import CatalystPollingService
+    from app.services.outcomes import OutcomeCaptureService
 
     if not settings.catalyst_sentinel_enabled:
         logger.info("Catalyst Sentinel disabled by configuration")
@@ -158,8 +177,26 @@ def _build_catalyst(settings: Settings, notifiers: list[NotifierProvider],
     if investigator is None:
         logger.warning("ANTHROPIC_API_KEY unset — catalyst adversarial review unavailable")
 
+    # Free float is the one structure input Polygon does not publish, so it is
+    # sourced from FMP when that key exists. Neither is required: absent both,
+    # amplification caps itself and records what was missing.
+    market_data = CatalystMarketDataService(
+        bars=polygon, structure=polygon, settings=settings,
+        float_providers=[p for p in (fmp,) if p])
+    if not market_data.available:
+        logger.warning(
+            "POLYGON_API_KEY unset — catalyst market data unavailable; move "
+            "amplification and reaction room will run without price inputs")
+
     notifier = CatalystNotifier(notifiers)
-    pipeline = CatalystPipeline(settings=settings, investigator=investigator,
-                                notifier=notifier)
+    pipeline = CatalystPipeline(
+        settings=settings, investigator=investigator, notifier=notifier,
+        market_context_fn=market_data.as_context_fn() if market_data.available else None)
+
+    poller = CatalystPollingService(pipeline=pipeline, sec=sec,
+                                    news_providers=news_providers, settings=settings)
+    outcomes = OutcomeCaptureService(bars=polygon, settings=settings)
+
     return CatalystStack(enabled=True, news_providers=news_providers,
-                         investigator=investigator, notifier=notifier, pipeline=pipeline)
+                         investigator=investigator, notifier=notifier, pipeline=pipeline,
+                         market=market_data, poller=poller, outcomes=outcomes)

@@ -86,7 +86,7 @@ def make_pipeline(conf: Settings, investigator=None, *, market=None,
         settings=conf,
         investigator=investigator,
         notifier=CatalystNotifier([notifier]),
-        market_context_fn=market or (lambda t, n: MarketContextInputs(
+        market_context_fn=market or (lambda t, n, e=None, sec="", ind="": MarketContextInputs(
             price_before=10.0, price_now=10.1,
             structure=MarketStructure(market_cap=400e6, free_float_shares=20e6,
                                       share_price=10.1, avg_dollar_volume=10e6,
@@ -150,7 +150,7 @@ def test_multi_award_ceiling_does_not_become_a_high_score(db):
     """'$5bn AI programme' shared with 30 vendors, nothing guaranteed,
     already announced, stock already +25%."""
     conf = settings()
-    market = lambda t, n: MarketContextInputs(
+    market = lambda t, n, e=None, sec="", ind="": MarketContextInputs(
         price_before=10.0, price_now=12.5, pre_event_runup_pct=25.0,
         structure=MarketStructure(market_cap=500e6, free_float_shares=20e6,
                                   share_price=12.5, avg_dollar_volume=10e6,
@@ -246,7 +246,7 @@ def test_buyback_authorisation_is_not_scored_as_execution(db):
 def test_transformative_catalyst_with_no_room_left_is_not_pushed(db):
     """Catalyst is genuinely excellent but the stock has already run +70%."""
     conf = settings()
-    market = lambda t, n: MarketContextInputs(
+    market = lambda t, n, e=None, sec="", ind="": MarketContextInputs(
         price_before=10.0, price_now=17.0, pre_event_runup_pct=15.0,
         structure=MarketStructure(market_cap=680e6, free_float_shares=20e6,
                                   share_price=17.0, avg_dollar_volume=10e6,
@@ -357,7 +357,7 @@ def test_unmappable_story_is_rejected_before_any_analysis(db):
 
 def test_halted_stock_is_scored_but_not_pushed(db):
     conf = settings()
-    market = lambda t, n: MarketContextInputs(
+    market = lambda t, n, e=None, sec="", ind="": MarketContextInputs(
         price_before=10.0, price_now=10.0,
         structure=MarketStructure(market_cap=400e6, free_float_shares=20e6,
                                   share_price=10.0, avg_dollar_volume=10e6,
@@ -380,7 +380,7 @@ def test_halted_stock_is_scored_but_not_pushed(db):
 
 def test_missing_price_data_prevents_a_fresh_push(db):
     conf = settings()
-    market = lambda t, n: MarketContextInputs(
+    market = lambda t, n, e=None, sec="", ind="": MarketContextInputs(
         price_before=None, price_now=None,
         structure=MarketStructure(market_cap=400e6, session="regular"))
     pipeline, notifier = make_pipeline(conf, StubInvestigator(), market=market)

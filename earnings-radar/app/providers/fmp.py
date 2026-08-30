@@ -117,6 +117,48 @@ class FmpProvider(EarningsCalendarProvider, EstimatesProvider, PriceProvider, Pr
         closes = [float(r["close"]) for r in reversed(hist) if r.get("close") is not None]
         return closes[-days:]
 
+    def free_float_shares(self, ticker: str) -> float | None:
+        """Free float, which Polygon does not publish (§43).
+
+        Returns None — never shares outstanding — when the plan does not carry
+        the endpoint or the figure is missing.
+        """
+        try:
+            data = self._get_v4("/shares_float", symbol=ticker.upper())
+        except ProviderUnavailable:
+            return None
+        rows = data if isinstance(data, list) else [data]
+        for row in rows or []:
+            if not isinstance(row, dict):
+                continue
+            value = row.get("floatShares") or row.get("freeFloat")
+            if value:
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return None
+        return None
+
+    def _get_v4(self, path: str, **params):
+        """FMP's v4 tree, which hosts shares_float."""
+        if not self._api_key:
+            raise ProviderUnavailable("fmp: no API key configured")
+        if not self._quota.consume():
+            raise ProviderUnavailable("fmp: daily quota exhausted")
+        self._limiter.acquire()
+        params["apikey"] = self._api_key
+        url = f"https://financialmodelingprep.com/api/v4{path}"
+        try:
+            resp = self._client.get(url, params=params)
+            if resp.status_code == 429:
+                raise ProviderError("fmp rate limited")
+            if resp.status_code in (401, 403):
+                raise ProviderUnavailable(f"fmp: plan does not include {path}")
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.HTTPError as exc:
+            raise ProviderError(f"fmp request failed ({path}): {exc}") from exc
+
     def profile(self, ticker: str) -> CompanyProfile:
         rows = self._get(f"/profile/{ticker.upper()}")
         if not rows:

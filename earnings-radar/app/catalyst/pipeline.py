@@ -315,9 +315,14 @@ class CatalystPipeline:
             return result
 
         # ── quantitative stages ──
+        # The disclosure timestamp drives everything price-related: it is the
+        # baseline the move is measured from, so it is resolved before any
+        # market data is fetched.
+        earliest_public = from_db(cluster.earliest_public_at_utc) or now
+
         stage_start = time.monotonic()
         financials = self._get_financials(session, ticker)
-        market = self._get_market_context(ticker, now)
+        market = self._get_market_context(session, ticker, now, earliest_public)
         self._trace(session, correlation_id, "market_data", stage_start,
                     f"price={market.price_now}", event_id=event.id)
 
@@ -348,13 +353,13 @@ class CatalystPipeline:
             normal_move_pct=normal_move, normal_basis=normal_basis)
         analogue_move, analogue_n = self._get_analogue(classification.event_type,
                                                        market.structure)
-        earliest_public = from_db(cluster.earliest_public_at_utc) or now
         room = react.assess_reaction_room(
             abnormal=abnormal, analogue_expected_move_pct=analogue_move,
             pre_event_runup_pct=market.pre_event_runup_pct,
             minutes_since_disclosure=amp.timedelta_minutes(earliest_public, now),
             halt_state=market.structure.halt_state,
-            volume_multiple=market.structure.relative_volume)
+            volume_multiple=market.structure.relative_volume,
+            prices_stale=_tape_stopped(market.structure))
         amplification = amp.assess_amplification(market.structure, now)
         execution = amp.assess_execution_quality(market.structure)
         self._trace(session, correlation_id, "reaction_and_structure", stage_start,
@@ -574,9 +579,20 @@ class CatalystPipeline:
             return mat.CompanyFinancials()
         return mat.CompanyFinancials(market_cap=company.market_cap)
 
-    def _get_market_context(self, ticker: str, now: datetime) -> MarketContextInputs:
+    def _get_market_context(self, session: Session, ticker: str, now: datetime,
+                            event_at: datetime | None) -> MarketContextInputs:
+        """Decision-time prices and market structure.
+
+        With no market-data layer wired in, this returns the session and
+        nothing else — which the scoring engines treat as missing data and cap
+        for, rather than as a neutral reading.
+        """
         if self._market_context_fn is not None:
-            return self._market_context_fn(ticker, now)
+            company = session.query(Company).filter_by(ticker=ticker.upper()).first()
+            return self._market_context_fn(
+                ticker, now, event_at,
+                company.sector if company else "",
+                company.industry if company else "")
         return MarketContextInputs(
             structure=amp.MarketStructure(session=amp.market_session(now)))
 
@@ -762,11 +778,13 @@ class CatalystPipeline:
             avg_dollar_volume=structure.avg_dollar_volume,
             relative_volume=structure.relative_volume, spread_pct=structure.spread_pct,
             short_percent_float=structure.short_percent_float,
+            short_percent_shares_outstanding=structure.short_percent_shares_outstanding,
             days_to_cover=structure.days_to_cover,
             short_interest_as_of=structure.short_interest_as_of,
             realised_volatility=structure.realised_volatility_pct,
             atr_pct=structure.atr_pct, session=structure.session,
             halt_state=structure.halt_state.value,
+            quote_stale_seconds=structure.quote_stale_seconds,
             missing_inputs=structure.missing()))
 
         session.add(ReactionAnalysis(
@@ -797,7 +815,14 @@ class CatalystPipeline:
         session.flush()
 
 
-# ── small text helpers (deterministic, no LLM) ───────────────────────────────
+# ── small helpers (deterministic, no LLM) ────────────────────────────────────
+
+
+def _tape_stopped(structure: amp.MarketStructure) -> bool:
+    """No prints during regular hours — the quote is not a live market."""
+    return (structure.quote_stale_seconds is not None
+            and structure.session == "regular"
+            and structure.quote_stale_seconds >= amp.STALE_QUOTE_SECONDS)
 
 
 def _search_any(text: str, needles: tuple[str, ...]) -> str | None:

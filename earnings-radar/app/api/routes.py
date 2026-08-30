@@ -209,6 +209,10 @@ def health(container=Depends(get_container)) -> dict:
                               if scheduler.last_discovery_at else None),
         "last_monitor_tick_at": (scheduler.last_monitor_tick_at.isoformat()
                                  if scheduler.last_monitor_tick_at else None),
+        "last_catalyst_poll_at": (scheduler.last_catalyst_poll_at.isoformat()
+                                  if scheduler.last_catalyst_poll_at else None),
+        "last_outcome_capture_at": (scheduler.last_outcome_capture_at.isoformat()
+                                    if scheduler.last_outcome_capture_at else None),
         "monitored_companies": monitored,
         "scored_releases": scored,
         "failed_notifications": failed_notifications,
@@ -229,3 +233,35 @@ def run_discovery_now(container=Depends(get_container)) -> dict:
 def run_monitor_tick(container=Depends(get_container)) -> dict:
     checked = container.scheduler.monitor_tick()
     return {"checked": checked}
+
+
+@router.post("/catalyst/poll")
+def run_catalyst_poll(container=Depends(get_container)) -> dict:
+    """Run one catalyst sweep now, rather than waiting for the interval."""
+    result = container.scheduler.catalyst_poll()
+    if result is None:
+        return {"ran": False, "reason": "catalyst polling not configured"}
+    return {
+        "ran": True,
+        "filings_seen": result.filings_seen,
+        "filings_processed": result.filings_processed,
+        "articles_seen": result.articles_seen,
+        "articles_processed": result.articles_processed,
+        "scored": result.scored,
+        "alerted": result.alerted,
+        "errors": result.errors,
+    }
+
+
+@router.post("/catalyst/outcomes/capture")
+def run_outcome_capture(container=Depends(get_container)) -> dict:
+    result = container.scheduler.capture_outcomes()
+    if result is None:
+        return {"ran": False, "reason": "outcome capture not configured"}
+    return {
+        "ran": True,
+        "events_considered": result.events_considered,
+        "events_updated": result.events_updated,
+        "events_completed": result.events_completed,
+        "errors": result.errors,
+    }

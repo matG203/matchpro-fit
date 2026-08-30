@@ -19,6 +19,11 @@ from datetime import datetime, timedelta
 from app.catalyst.enums import HaltState
 from app.domain.timeutil import NEW_YORK
 
+# During regular hours, a liquid name prints constantly. Five minutes of
+# silence means either a halt or a stock too thin to act on — both of which
+# make the quote unusable.
+STALE_QUOTE_SECONDS = 300.0
+
 
 @dataclass
 class MarketStructure:
@@ -32,12 +37,20 @@ class MarketStructure:
     relative_volume: float | None = None
     spread_pct: float | None = None
     short_percent_float: float | None = None
+    # Fallback basis when free float is unavailable. Always ≤ short % of float,
+    # so it understates the squeeze — used at reduced confidence, never
+    # relabelled as short interest of float (§43).
+    short_percent_shares_outstanding: float | None = None
     days_to_cover: float | None = None
     short_interest_as_of: datetime | None = None
     realised_volatility_pct: float | None = None
     atr_pct: float | None = None
     session: str = "unknown"
     halt_state: HaltState = HaltState.UNKNOWN
+    # Seconds since the last print. During regular hours a large value means
+    # the tape has stopped — the quote is not describing a live market, whether
+    # or not we can name the reason.
+    quote_stale_seconds: float | None = None
 
     def float_value(self) -> float | None:
         """Free-float market value. Falls back to nothing — shares outstanding
@@ -112,10 +125,21 @@ def _market_cap_score(market_cap: float | None) -> float | None:
 
 def _short_score(structure: MarketStructure, now: datetime) -> tuple[float | None, float, str]:
     confidence, stale_days = short_interest_freshness(structure.short_interest_as_of, now)
-    if structure.short_percent_float is None or confidence == 0.0:
+    if confidence == 0.0:
         return None, 0.0, "short interest unavailable"
 
+    basis = "float"
     pct = structure.short_percent_float
+    if pct is None:
+        # No free float: shares outstanding is the only denominator available.
+        # It flatters the stock (a larger denominator, so a smaller percentage),
+        # so the result is used at reduced confidence and labelled as such.
+        pct = structure.short_percent_shares_outstanding
+        basis = "shares outstanding"
+        confidence *= 0.6
+    if pct is None:
+        return None, 0.0, "short interest unavailable"
+
     if pct >= 30:
         raw = 10.0
     elif pct >= 20:
@@ -130,7 +154,7 @@ def _short_score(structure: MarketStructure, now: datetime) -> tuple[float | Non
     if structure.days_to_cover and structure.days_to_cover >= 5:
         raw = min(10.0, raw + 1.0)
 
-    note = f"short interest {pct:.1f}% of float"
+    note = f"short interest {pct:.1f}% of {basis}"
     if stale_days is not None:
         note += f", as of {stale_days:.0f} days ago (confidence {confidence:.0%})"
     # Blend toward neutral in proportion to staleness rather than trusting it.
@@ -246,6 +270,17 @@ def assess_execution_quality(structure: MarketStructure) -> ExecutionQuality:
         return ExecutionQuality(
             0.0, False,
             [f"stock halted ({structure.halt_state.value}) — quotes are not actionable"])
+
+    # A stopped tape during regular hours is the same problem as a halt — the
+    # displayed price is not describing a live market — even when we cannot
+    # name the reason, so it is reported as staleness rather than as a halt.
+    if (structure.quote_stale_seconds is not None
+            and structure.session == "regular"
+            and structure.quote_stale_seconds >= STALE_QUOTE_SECONDS):
+        return ExecutionQuality(
+            0.0, False,
+            [f"no print for {structure.quote_stale_seconds / 60:.0f} minutes during regular "
+             "hours — quote is not a live market (possible halt)"])
 
     if structure.spread_pct is not None:
         if structure.spread_pct >= 5:

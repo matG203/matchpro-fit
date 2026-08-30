@@ -7,6 +7,8 @@ ticker→CIK map, tiny JSON index polls instead of page scraping.
 from __future__ import annotations
 
 import re
+import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import httpx
@@ -15,6 +17,7 @@ from app.config import get_settings
 from app.providers.base import FilingHit, FilingProvider, ProviderError, RateLimiter, TTLCache
 
 TICKER_MAP_URL = "https://www.sec.gov/files/company_tickers.json"
+CURRENT_FEED_URL = "https://www.sec.gov/cgi-bin/browse-edgar"
 SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik:0>10}.json"
 ARCHIVES_URL = "https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession}/{doc}"
 
@@ -22,6 +25,22 @@ ARCHIVES_URL = "https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession}/{d
 EARNINGS_FORMS = {"8-K", "8-K/A", "6-K", "6-K/A", "10-Q", "10-Q/A"}
 
 _TAG_RE = re.compile(r"<[^>]+>")
+_ATOM_NS = "{http://www.w3.org/2005/Atom}"
+# "8-K - ACME CORP (0001234567) (Filer)". The form itself usually contains a
+# hyphen (8-K, 10-Q, S-1, SC 13D/A), so the separator is " - " with spaces —
+# matching on a bare hyphen would drop almost every filing.
+_FEED_TITLE_RE = re.compile(r"^\s*(?P<form>.+?)\s+-\s+(?P<name>.+?)\s+\((?P<cik>\d{4,10})\)")
+
+
+@dataclass
+class FeedEntry:
+    """One row of EDGAR's latest-filings feed: who filed what, and when."""
+
+    cik: str
+    form_type: str
+    company_name: str
+    accepted_at_utc: datetime | None
+    url: str = ""
 
 
 class SecEdgarProvider(FilingProvider):
@@ -89,6 +108,39 @@ class SecEdgarProvider(FilingProvider):
             )
         return hits
 
+    # ── firehose ──────────────────────────────────────────────────────────────
+
+    def latest_filings(self, form_type: str = "", count: int = 100) -> list[FeedEntry]:
+        """EDGAR's latest-filings feed — every filer, one request.
+
+        This is what makes continuous monitoring affordable. Polling the
+        submissions JSON for each watched company would be hundreds of requests
+        per sweep; this is one, and the per-company call is then made only for
+        the handful of companies that actually filed. Item codes are not in the
+        feed, so routing still needs that second call — but only for real hits.
+        """
+        params = {"action": "getcurrent", "owner": "include",
+                  "count": str(min(max(count, 10), 100)), "output": "atom"}
+        if form_type:
+            params["type"] = form_type
+        self._limiter.acquire()
+        try:
+            resp = self._client.get(CURRENT_FEED_URL, params=params)
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise ProviderError(f"SEC latest-filings feed failed: {exc}") from exc
+
+        entries = parse_current_feed(resp.text)
+        if not entries and len(resp.text) > 2000:
+            # A substantial body that yielded nothing means the feed's shape has
+            # changed, not that nobody filed. Silence there would look exactly
+            # like a quiet market, which is the one wrong answer this must not
+            # give — so it is raised as a provider error and surfaced.
+            raise ProviderError(
+                f"SEC latest-filings feed returned {len(resp.text)} bytes but no "
+                "parseable entries — the feed format may have changed")
+        return entries
+
     def fetch_document_text(self, url: str) -> str:
         self._limiter.acquire()
         try:
@@ -111,6 +163,45 @@ class SecEdgarProvider(FilingProvider):
             return resp.json()
         except httpx.HTTPError as exc:
             raise ProviderError(f"SEC request failed ({url}): {exc}") from exc
+
+
+def parse_current_feed(xml_text: str) -> list[FeedEntry]:
+    """Parse the latest-filings Atom feed. Tolerant: a malformed entry is
+    skipped rather than losing the whole sweep."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError as exc:
+        raise ProviderError(f"unparseable EDGAR feed: {exc}") from exc
+
+    entries: list[FeedEntry] = []
+    for entry in root.iter(f"{_ATOM_NS}entry"):
+        title_el = entry.find(f"{_ATOM_NS}title")
+        title = (title_el.text or "") if title_el is not None else ""
+        match = _FEED_TITLE_RE.match(title)
+        if not match:
+            continue
+
+        form = match.group("form").strip().upper()
+        category = entry.find(f"{_ATOM_NS}category")
+        if category is not None and category.get("term"):
+            form = category.get("term", form).strip().upper()
+
+        updated_el = entry.find(f"{_ATOM_NS}updated")
+        accepted = None
+        if updated_el is not None and updated_el.text:
+            try:
+                accepted = _parse_acceptance(updated_el.text.strip())
+            except ValueError:
+                accepted = None
+
+        link_el = entry.find(f"{_ATOM_NS}link")
+        entries.append(FeedEntry(
+            cik=match.group("cik").zfill(10),
+            form_type=form,
+            company_name=match.group("name").strip(),
+            accepted_at_utc=accepted,
+            url=link_el.get("href", "") if link_el is not None else ""))
+    return entries
 
 
 def _parse_acceptance(value: str) -> datetime:

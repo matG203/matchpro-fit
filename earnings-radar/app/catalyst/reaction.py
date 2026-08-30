@@ -121,7 +121,8 @@ def assess_reaction_room(*, abnormal: AbnormalMove,
                          pre_event_runup_pct: float | None = None,
                          minutes_since_disclosure: float | None = None,
                          halt_state: HaltState = HaltState.NONE,
-                         volume_multiple: float | None = None) -> ReactionRoom:
+                         volume_multiple: float | None = None,
+                         prices_stale: bool = False) -> ReactionRoom:
     """How much of the plausible move may remain (§39, §68).
 
     The analogue median is contextual evidence, never a price target.
@@ -131,6 +132,13 @@ def assess_reaction_room(*, abnormal: AbnormalMove,
     if abnormal.abnormal_move_pct is None:
         return ReactionRoom(score=5.0, unresolved=True,
                             notes=["price data unavailable — reaction room unresolved"])
+
+    if prices_stale:
+        # Same consequence as a halt: we are measuring against a price the
+        # market is not currently making.
+        return ReactionRoom(
+            score=5.0, abnormal_move_pct=abnormal.abnormal_move_pct, unresolved=True,
+            notes=["tape has stopped — reaction room unresolved until trading resumes"])
 
     if halt_state in (HaltState.NEWS_PENDING, HaltState.LULD, HaltState.REGULATORY):
         # Displayed prices are meaningless mid-halt; treat as unresolved and

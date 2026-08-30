@@ -480,15 +480,96 @@ These are the spec's starting heuristic (§72) and are **explicitly provisional*
 weights can be recalibrated empirically once outcome data exists — at which
 point `/api/catalyst/performance` shows whether 9.5s actually outperform 8.5s.
 
-## 18. What is deliberately NOT built yet
+## 18. Live market data (v0.3.0)
+
+The scoring engines were built against an injected `market_context_fn` so they
+could be tested exhaustively without a network. This section covers the
+production implementation behind it.
+
+### 18.1 Provider split
+
+| Input | Source | Why |
+|---|---|---|
+| Prices, minute/daily bars, bid/ask | Polygon.io | Real-time and extended-hours. Catalysts break pre-market and after hours, which is exactly when a delayed consolidated quote is worthless. |
+| Market cap, shares outstanding | Polygon.io | Reference endpoint. |
+| Short interest + settlement date | Polygon.io | The date matters as much as the number — published short interest lags reality by up to a month (§44). |
+| **Free float** | FMP | Polygon does not publish it. Shares outstanding is *not* a substitute and is never used as one. |
+| Filing firehose | SEC EDGAR | Free, authoritative, and the primary-source timestamp. |
+
+If a source is absent the field stays `None` and the engines cap themselves and
+record what was missing. Nothing is substituted.
+
+### 18.2 The baseline problem
+
+The single most important decision in this layer: **the "before" price is the
+last minute bar that _closed_ before the disclosure**, not the bar containing
+it. The minute in which news breaks already contains the reaction. Taking its
+close as the baseline would have scored a 20% jump as roughly 0% — and Reaction
+Room would then have reported a fully repriced stock as untouched, producing a
+high score on exactly the trade you must not take.
+
+`price_at(..., completed_only=True)` enforces this, and treats the final bar in
+any series as still open, because nothing in a bar series proves otherwise.
+
+### 18.3 Comparators
+
+Abnormal move = raw move − comparator move, with sector preferred over market
+(§50). Both ends of the comparison come from the same bar series over the same
+window: mixing a bar close with a live quote would manufacture a difference of
+its own. Sector is mapped from the company record to a liquid ETF; unmapped
+sectors fall back to the benchmark rather than to nothing.
+
+### 18.4 Continuous detection
+
+Polling the submissions JSON for every watched company would be hundreds of
+requests per sweep and would breach SEC's access guidance immediately. Instead:
+
+1. **Firehose** — EDGAR's latest-filings feed. One request names every filer.
+2. **Filter** — keep monitored forms from companies in our universe.
+3. **Detail** — only those companies get a submissions call for item codes and
+   the primary document.
+
+A 400-name universe therefore costs one request per sweep, occasionally a
+handful. Item 2.02 and the periodic reports are handed to Earnings Sentinel;
+Form 3/4/5 and 13G are routed on metadata without downloading anything.
+
+A full HTTP response that parses to zero filings is raised as a **format
+change**, never reported as a quiet market. Silence is the one wrong answer a
+detector can give.
+
+### 18.5 Outcome capture
+
+Backfilled from historical bars rather than sampled live, so nothing depends on
+the process being awake at +5 minutes exactly. Returns are measured from the
+disclosure price (the alert timestamp measures the system's speed; the
+disclosure timestamp measures whether the event was worth trading) and
+benchmark-adjusted. MFE/MAE record whether the trade ever worked, not only where
+it closed. Each pass fills whichever horizons have matured and is idempotent.
+
+Completed outcomes write `historical_analogues`. That is the only route by which
+`analogue_sample_size` ever becomes non-zero and Reaction Room stops guessing.
+
+### 18.6 Halts
+
+Polygon publishes individual halts over its websocket, not REST. Rather than
+claim a halt reason we do not know, a stopped tape during regular hours is
+detected from last-trade staleness and reported as staleness: Execution Quality
+goes to zero and Reaction Room becomes unresolved — the same consequences as a
+halt, without the invented cause.
+
+## 19. What is deliberately NOT built yet
 
 - **No automated trading.** No order functions exist (§110).
-- **Historical analogue engine** (§40) — schema and interface exist; until real
-  events accumulate, `analogue_sample_size` is 0 and confidence is penalised
-  accordingly. The fallback expectation is a volatility multiple, clearly
-  labelled as such.
+- **Historical analogue engine** (§40) — the store is now being populated by
+  outcome capture, but the similarity query is not written, so
+  `analogue_sample_size` is still 0 and confidence is penalised accordingly. The
+  fallback expectation remains a volatility multiple, clearly labelled.
 - **ML reaction models** (§89-91) — deferred until the event database is
   trustworthy, exactly as the spec instructs.
 - **Licensed newswire adapter** — the `NewsProvider` interface and mock are
-  complete; a Benzinga adapter drops in without touching the pipeline.
-- **Options-implied move** — used when supplied, never fabricated.
+  complete; a Benzinga adapter drops in without touching the pipeline. This is
+  now the largest remaining gap: a press-release-only catalyst with no
+  accompanying filing is seen late or not at all.
+- **Options-implied move** — used when supplied, never fabricated. Currently
+  falls back to ATR.
+- **Per-ticker halt detection** — see §18.6.

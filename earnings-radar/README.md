@@ -65,7 +65,7 @@ tells you exactly which providers are live.
 Run the tests:
 
 ```bash
-.venv/bin/python -m pytest -q          # 219 tests
+.venv/bin/python -m pytest -q          # 294 tests
 .venv/bin/ruff check app tests
 ```
 
@@ -88,7 +88,8 @@ Minimum useful setup:
 | `SEC_USER_AGENT` | **Required.** SEC demands a real contact string for automated access. | free |
 | `NTFY_TOPIC` | Push to your iPhone. Install the *ntfy* app, subscribe to a long random topic, put the same string here. | free |
 | `FINNHUB_API_KEY` | Earnings calendar, consensus, quotes. | free tier |
-| `FMP_API_KEY` | Second calendar/consensus/price source — the cross-check that makes the consensus band meaningful. | free tier |
+| `FMP_API_KEY` | Second calendar/consensus/price source — the cross-check that makes the consensus band meaningful. Also the only source of **free float**. | free tier |
+| `POLYGON_API_KEY` | Real-time and extended-hours prices, minute bars, reference data, short interest. Catalyst Sentinel's Move Amplification, Reaction Room and outcome capture run on this. Without it they have no price inputs and cap themselves. | ~$29/mo |
 | `ANTHROPIC_API_KEY` | The qualitative analysis layer (`claude-opus-5`). Without it you get provisional deterministic scores only. | ~$0.25–0.40 per report |
 
 Optional: `PUSHOVER_USER_KEY` + `PUSHOVER_APP_TOKEN` for a second push channel.
@@ -118,6 +119,19 @@ JSON and newswire RSS feeds — rather than scraping IR pages, because a stale I
 homepage is exactly how a release gets missed. Polling is adaptive: nothing
 until T−60, every 5 minutes to T−15, every minute to T−0, then every 20 seconds
 through T+30.
+
+**Catalyst detection** runs continuously rather than around known windows,
+because catalysts are unscheduled by definition. Every 30 seconds it reads
+EDGAR's latest-filings feed — one request that names every filer in the last
+few minutes — then pulls item codes and documents only for companies it
+watches. Polling the submissions JSON per company would be hundreds of requests
+a sweep and would breach SEC's access guidance within seconds.
+
+**Market context** is measured from the disclosure, not from "now" and not from
+yesterday's close. Minute bars give the last print *before* the news broke —
+the bar the news lands in already contains the reaction, so using it would
+erase most of the move — and the same window on a benchmark and sector ETF
+strips out what the whole market was doing anyway.
 
 **Verification** is strict. A release counts only when a retrieved document
 contains actual current-quarter financial results. Scheduling notices,
@@ -170,6 +184,8 @@ extraction, and a mismatch lowers confidence.
 | `/api/health` | Scheduler, providers, DB, queue, average detection latency |
 | `POST /api/discovery/run` | Run discovery now |
 | `POST /api/monitor/tick` | Run one monitor sweep now |
+| `POST /api/catalyst/poll` | Run one catalyst detection sweep now |
+| `POST /api/catalyst/outcomes/capture` | Backfill outcomes for recent catalysts now |
 
 ---
 
@@ -187,6 +203,13 @@ extraction, and a mismatch lowers confidence.
   no options feed; unavailable values stay null.
 - **Missing releases are never marked "not released"** — they go
   `NOT_YET_VERIFIED`, then `DELAYED_OR_UNVERIFIED` after the grace period.
+- **Silence is never mistaken for calm.** If EDGAR's feed returns a full
+  response that parses to zero filings, that is treated as a format change and
+  raised — an empty list would look exactly like a quiet market.
+- **Schema additions are applied automatically.** `create_all` only creates
+  missing tables, so a nullable column added to the models is `ALTER TABLE`d
+  into an existing database on startup. Anything beyond an additive change is
+  refused and logged rather than guessed at.
 
 ## Project layout
 
@@ -196,16 +219,18 @@ app/
   container.py       composition root
   domain/            enums, state machine, timezones, canonical ids, LLM schema
   db/                SQLAlchemy models + session
-  providers/         SEC EDGAR, Finnhub, FMP, newswire RSS, ntfy, Pushover
+  providers/         SEC EDGAR, Finnhub, FMP, Polygon, newswire RSS,
+                     ntfy, Pushover
   services/          discovery, scheduler, monitor, verification, extraction,
                      expectations, marketdata, analysis, scoring, notification,
-                     pipeline, audit
+                     pipeline, audit, catalyst_market, catalyst_poller,
+                     outcomes
   api/               JSON API + server-rendered dashboard
   catalyst/          Catalyst Sentinel: entities, dedup, novelty, classify,
                      materiality, negatives, amplification, reaction, scoring,
                      investigator, alerts, pipeline, SEC routing
-tests/               219 tests incl. earnings regression cases and the
-                     catalyst false-positive scenarios
+tests/               294 tests incl. earnings regression cases, the catalyst
+                     false-positive scenarios, and the live market-data wiring
 ```
 
 See [TODO.md](TODO.md) for what is deferred to Phase 2/3 and

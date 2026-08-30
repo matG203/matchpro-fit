@@ -34,14 +34,19 @@ _ACTIVE_STATES = (EventState.SCHEDULED.value, EventState.MONITORING.value,
 
 class SchedulerService:
     def __init__(self, *, settings: Settings, discovery: EarningsDiscoveryService,
-                 pipeline: EarningsPipeline, monitor_tick_seconds: int = 15):
+                 pipeline: EarningsPipeline, monitor_tick_seconds: int = 15,
+                 catalyst_poller=None, outcomes=None):
         self._settings = settings
         self._discovery = discovery
         self._pipeline = pipeline
         self._tick = monitor_tick_seconds
+        self._catalyst_poller = catalyst_poller
+        self._outcomes = outcomes
         self._scheduler: BackgroundScheduler | None = None
         self.last_discovery_at: datetime | None = None
         self.last_monitor_tick_at: datetime | None = None
+        self.last_catalyst_poll_at: datetime | None = None
+        self.last_outcome_capture_at: datetime | None = None
 
     # ── lifecycle ─────────────────────────────────────────────────────────────
 
@@ -57,9 +62,33 @@ class SchedulerService:
         self._scheduler.add_job(
             self.monitor_tick, IntervalTrigger(seconds=self._tick),
             id="monitor", max_instances=1, coalesce=True)
+
+        # Catalysts are unscheduled by nature, so this runs continuously rather
+        # than around known release windows.
+        if self._catalyst_poller is not None:
+            self._scheduler.add_job(
+                self.catalyst_poll,
+                IntervalTrigger(seconds=self._settings.catalyst_poll_seconds),
+                id="catalyst-poll", max_instances=1, coalesce=True,
+                misfire_grace_time=self._settings.catalyst_poll_seconds)
+
+        if self._outcomes is not None and self._settings.outcome_capture_enabled:
+            self._scheduler.add_job(
+                self.capture_outcomes,
+                IntervalTrigger(seconds=self._settings.outcome_capture_interval_seconds),
+                id="outcome-capture", max_instances=1, coalesce=True,
+                misfire_grace_time=600)
+
         self._scheduler.start()
-        logger.info("scheduler started: discovery at %s Europe/London, monitor every %ss",
-                    self._settings.discovery_times, self._tick)
+        logger.info(
+            "scheduler started: discovery at %s Europe/London, monitor every %ss, "
+            "catalyst polling %s, outcome capture %s",
+            self._settings.discovery_times, self._tick,
+            f"every {self._settings.catalyst_poll_seconds}s"
+            if self._catalyst_poller is not None else "off",
+            f"every {self._settings.outcome_capture_interval_seconds}s"
+            if self._outcomes is not None and self._settings.outcome_capture_enabled
+            else "off")
 
     def shutdown(self) -> None:
         if self._scheduler is not None:
@@ -77,6 +106,33 @@ class SchedulerService:
             count = self._discovery.run(session)
         self.last_discovery_at = utcnow()
         return count
+
+    def catalyst_poll(self, now: datetime | None = None):
+        """One catalyst detection sweep. Never raises into the scheduler: a
+        provider outage must not stop the loop that would recover from it."""
+        if self._catalyst_poller is None:
+            return None
+        now = now or utcnow()
+        self.last_catalyst_poll_at = now
+        try:
+            with db_session() as session:
+                return self._catalyst_poller.poll(session, now)
+        except Exception:
+            logger.exception("catalyst poll failed")
+            return None
+
+    def capture_outcomes(self, now: datetime | None = None):
+        """Backfill what actually happened after recent catalysts."""
+        if self._outcomes is None:
+            return None
+        now = now or utcnow()
+        self.last_outcome_capture_at = now
+        try:
+            with db_session() as session:
+                return self._outcomes.run(session, now)
+        except Exception:
+            logger.exception("outcome capture failed")
+            return None
 
     def monitor_tick(self, now: datetime | None = None) -> int:
         """Check every event that is due. Returns how many were checked."""

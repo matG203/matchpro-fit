@@ -35,7 +35,8 @@
       per-industry KPI definitions (SaaS/semis/retail/fintech/banks/miners) and
       sequential Q-2/Q-1/current trend calculation.
 - [ ] Per-company IR/newswire feed URLs on the company record.
-- [ ] `outcomes` capture job (price at +5m/+30m/next open/close, 1d/5d/30d).
+- [ ] `outcomes` capture job for *earnings* releases. The catalyst equivalent
+      is built (`app/services/outcomes.py`); the earnings path can reuse it.
 
 ## Catalyst Sentinel — done (v0.2.0)
 
@@ -73,7 +74,7 @@
 
 ## Phase 2
 
-- [ ] Options-implied move (Polygon or similar) — deliberately absent until
+- [ ] Options-implied move (Polygon's options tier) — deliberately absent until
       there is a real feed; never fabricated.
 - [ ] Whisper/high-side expectations and analyst revision tracking.
 - [ ] Conference-call monitoring for scores ≥ 8.5, with `RBRK UPDATED — 8.1 → 7.6`

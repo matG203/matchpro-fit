@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     finnhub_api_key: str = ""
     fmp_api_key: str = ""
     fmp_daily_quota: int = 240  # free tier is 250/day; keep headroom
+    polygon_api_key: str = ""
     sec_user_agent: str = "Earnings Radar (contact@example.com)"
 
     # Notifications
@@ -78,6 +79,19 @@ class Settings(BaseSettings):
 
     catalyst_poll_seconds: int = 30
     benzinga_api_key: str = ""
+
+    # Catalyst market data
+    benchmark_ticker: str = "SPY"
+    catalyst_runup_lookback_days: int = 10
+    catalyst_atr_days: int = 14
+    catalyst_max_universe: int = 400
+    # Filings newer than this are still worth pricing and scoring.
+    catalyst_filing_lookback_minutes: int = 90
+
+    # Outcome capture
+    outcome_capture_enabled: bool = True
+    outcome_capture_interval_seconds: int = 300
+    outcome_capture_window_days: int = 5
 
     def discovery_time_list(self) -> list[tuple[int, int]]:
         out: list[tuple[int, int]] = []
