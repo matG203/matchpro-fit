@@ -428,6 +428,43 @@ def test_a_second_sweep_of_an_unchanged_feed_writes_nothing_new(db):
     assert before == after
 
 
+def test_the_user_agent_is_configurable():
+    """A wire that rejects our agent blocks the whole news stream, and the fix
+    must not require a code change on a machine we cannot reach."""
+    from app.providers.wires import DEFAULT_USER_AGENT
+
+    default, _ = build({}, max_body_fetches=0)
+    custom, _ = build({}, max_body_fetches=0, user_agent="MyReader/2.0")
+
+    assert default.user_agent == DEFAULT_USER_AGENT
+    assert "earnings-radar" in DEFAULT_USER_AGENT   # identifies us, gives a contact
+    assert custom.user_agent == "MyReader/2.0"
+
+
+def test_every_candidate_feed_is_a_plausible_url():
+    """The candidate list is typed by hand and only ever tested over the
+    network; a typo would otherwise surface as a confusing 404 mid-diagnosis."""
+    from urllib.parse import urlsplit
+
+    from app.providers.wires import CANDIDATE_FEEDS, DEFAULT_WIRE_FEEDS
+
+    seen: set[str] = set()
+    for source, urls in CANDIDATE_FEEDS.items():
+        assert urls, f"{source} has no candidates"
+        for url in urls:
+            parts = urlsplit(url)
+            assert parts.scheme == "https", url
+            assert parts.netloc, url
+            assert url not in seen, f"{url} is listed twice"
+            seen.add(url)
+
+    # Whatever is shipped as a default must be among the tested candidates,
+    # so the probe can always explain the address actually in use.
+    for feed in DEFAULT_WIRE_FEEDS:
+        assert feed.url in CANDIDATE_FEEDS.get(feed.source, []), (
+            f"{feed.source}'s default URL is not in its candidate list")
+
+
 def test_a_revised_release_at_the_same_url_changes_the_content_hash():
     """Same URL, edited text. `article_id` is stable so the pipeline matches it
     to the original; the hash differs so the revision is not swallowed."""

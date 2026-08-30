@@ -112,11 +112,88 @@ def dashboard(request: Request) -> HTMLResponse:
 
     return _page("Earnings Radar", f"""
       <h1>Earnings Radar</h1>
-      <p class='sub'>Sentinel · <a href='/catalysts'>Catalyst Sentinel →</a></p>
-      <p class='sub'>All times Europe/London · <a href='/api/health'>system health</a>
-       · <a href='/api/audit'>audit log</a></p>
+      <p class='sub'>All times Europe/London · <a href='/info'>everything this
+        system exposes →</a></p>
+      <p class='sub'><a href='/catalysts'>Catalyst Sentinel</a> ·
+        <a href='/news'>news evidence</a> ·
+        <a href='/api/preflight'>preflight</a> ·
+        <a href='/api/health'>health</a> ·
+        <a href='/api/audit'>audit log</a></p>
       <h2>Next earnings</h2>{next_table}
       <h2>Results</h2>{results_table}
+    """)
+
+
+# Every route worth opening, what it answers, and — where it matters — when to
+# reach for it. A view nobody can find is a view that does not exist, and until
+# now two thirds of these were reachable only by typing the URL.
+_INDEX: list[tuple[str, list[tuple[str, str]]]] = [
+    ("Start here", [
+        ("/api/preflight", "Does every provider actually work? Makes one real "
+                           "call each — Polygon, SEC, all three newswires. A wrong "
+                           "key looks exactly like a quiet market without this."),
+        ("/api/health", "Scheduler running, database reachable, which providers "
+                        "are configured, when each job last ran."),
+    ]),
+    ("Earnings Sentinel", [
+        ("/", "Today's watchlist and recently scored releases."),
+        ("/api/today", "The watchlist as JSON."),
+        ("/api/results", "Scored releases as JSON."),
+    ]),
+    ("Catalyst Sentinel", [
+        ("/catalysts", "Live catalysts — score, components, abnormal move."),
+        ("/news", "News evidence: are the wires alive, what came in, what became "
+                  "of each item, and did the alert beat the market."),
+        ("/api/catalyst/ingestion", "Feed health and every item's fate, discards "
+                                    "included."),
+        ("/api/catalyst/lead-time", "Disclosure → detection → alert, measured "
+                                    "against the tape rather than the delayed feed."),
+        ("/api/catalyst/performance", "Calibration by event type and score band. "
+                                      "Meaningless until the sample is in the dozens, "
+                                      "and says so."),
+        ("/api/catalyst/delay-impact", "What the 15-minute delayed feed is costing "
+                                       "you, if anything."),
+        ("/api/catalyst/news", "The raw ingest log."),
+    ]),
+    ("Audit", [
+        ("/api/audit", "Every check and decision, timestamped. This is where to "
+                       "look when something did not alert and you want to know why."),
+    ]),
+    ("Run something now", [
+        ("POST /api/discovery/run", "Find companies reporting in the next 24h."),
+        ("POST /api/monitor/tick", "One earnings monitor sweep."),
+        ("POST /api/catalyst/poll", "One catalyst detection sweep — SEC feed plus "
+                                    "the newswires."),
+        ("POST /api/catalyst/rescore", "Re-score catalysts whose delayed price "
+                                       "data has now arrived."),
+        ("POST /api/catalyst/outcomes/capture", "Backfill what actually happened "
+                                                "after recent catalysts."),
+    ]),
+]
+
+
+@router.get("/info", response_class=HTMLResponse)
+def info_page() -> HTMLResponse:
+    sections = ""
+    for heading, entries in _INDEX:
+        rows = "".join(
+            f"<tr><td><code>{path}</code></td><td class='sub'>{what}</td></tr>"
+            if path.startswith("POST")
+            else f"<tr><td><a href='{path}'><code>{path}</code></a></td>"
+                 f"<td class='sub'>{what}</td></tr>"
+            for path, what in entries)
+        sections += (f"<h2>{heading}</h2><div class='card'><table>{rows}</table></div>")
+
+    return _page("Earnings Radar — index", f"""
+      <p class='sub'><a href='/'>← dashboard</a></p>
+      <h1>Everything this system exposes</h1>
+      <p class='sub'>The <code>POST</code> routes are not links — they do
+        something. Trigger them from PowerShell with
+        <code>curl.exe -X POST &lt;url&gt;</code>, or leave them alone: the
+        scheduler runs all of them on its own.</p>
+      {sections}
+      <p class='sub'>This system never places an order. It detects, scores and
+        notifies; every trade is yours to place by hand.</p>
     """)
 
 

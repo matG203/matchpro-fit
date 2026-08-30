@@ -117,3 +117,34 @@ def test_audit_endpoint_returns_entries(client, db):
     client.post("/api/monitor/tick")
     entries = client.get("/api/audit").json()["entries"]
     assert isinstance(entries, list)
+
+
+# ── the index page ────────────────────────────────────────────────────────────
+
+
+def test_the_index_lists_every_route_and_they_all_resolve(client, db):
+    """A view nobody can find is a view that does not exist.
+
+    Until this page existed, two thirds of the system was reachable only by
+    typing a URL you had to already know. The test also stops the list rotting:
+    every GET it advertises must actually serve.
+    """
+    from app.api.dashboard import _INDEX
+
+    response = client.get("/info")
+    assert response.status_code == 200
+
+    for _heading, entries in _INDEX:
+        for path, description in entries:
+            assert description, f"{path} has no explanation"
+            if path.startswith("POST "):
+                # Listed for reference, deliberately not a link.
+                assert f"<code>{path}</code>" in response.text
+                continue
+            assert f"href='{path}'" in response.text, f"{path} is not linked"
+            served = client.get(path)
+            assert served.status_code == 200, f"{path} returned {served.status_code}"
+
+
+def test_the_dashboard_links_to_the_index(client, db):
+    assert "href='/info'" in client.get("/").text

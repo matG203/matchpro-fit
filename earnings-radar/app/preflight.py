@@ -376,8 +376,10 @@ def _check_wires(report: PreflightReport, settings: Settings, wires,
                        "wire feeds are enabled but none are configured",
                        "Set WIRE_USE_DEFAULT_FEEDS=true, or list feeds in WIRE_FEED_URLS")
             return
-        # No body fetches: this is a connectivity check, not a sweep.
-        wires = WireFirehoseProvider(feeds=feeds, max_body_fetches=0)
+        # No body-fetch budget of its own: the ticker-tag check below fetches a
+        # small, explicit sample rather than a whole sweep's worth.
+        wires = WireFirehoseProvider(feeds=feeds, max_body_fetches=0,
+                                     user_agent=settings.wire_user_agent)
 
     try:
         # A wide window so the check works at 3am on a Sunday, when the wires

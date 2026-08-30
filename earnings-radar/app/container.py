@@ -199,7 +199,8 @@ def _build_catalyst(settings: Settings, notifiers: list[NotifierProvider],
             news_providers.append(WireFirehoseProvider(
                 feeds=feeds,
                 max_body_fetches=settings.wire_max_body_fetches,
-                body_chars=settings.wire_body_chars))
+                body_chars=settings.wire_body_chars,
+                user_agent=settings.wire_user_agent))
             logger.info("newswire firehoses enabled: %s",
                         ", ".join(f.source for f in feeds))
         else:

@@ -101,6 +101,11 @@ class Settings(BaseSettings):
     # target: a normal sweep fetches one or two.
     wire_max_body_fetches: int = 25
     wire_body_chars: int = 40_000
+    # Some wires sit behind bot filtering that rejects unfamiliar agents
+    # inconsistently — PR Newswire has served a feed and then 404'd the same
+    # URL minutes later. Settable so a blocked deployment can be fixed without
+    # a code change. Empty uses the default in app.providers.wires.
+    wire_user_agent: str = ""
 
     def wire_feed_list(self) -> list[tuple[str, str]]:
         """Parse WIRE_FEED_URLS into (url, source name) pairs."""

@@ -71,6 +71,14 @@ _SCRIPT_RE = re.compile(r"<(script|style|noscript)\b.*?</\1>", re.IGNORECASE | r
 _WS_RE = re.compile(r"\s+")
 
 
+# Identifies us honestly and gives a contact route, which is what a feed
+# publisher wants to see. Some wires sit behind bot filtering that rejects
+# unfamiliar agents inconsistently — PR Newswire served 20 items and then 404'd
+# minutes later — so this is settable via WIRE_USER_AGENT rather than baked in.
+DEFAULT_USER_AGENT = ("EarningsRadar/1.0 (+https://github.com/matG203/earnings-radar; "
+                      "RSS reader)")
+
+
 @dataclass(frozen=True)
 class WireFeed:
     """One firehose. `source` names the wire in the audit trail."""
@@ -82,15 +90,22 @@ class WireFeed:
 
 # The public "all public-company news" firehoses. These URLs are the wires'
 # own published feed addresses; if one is retired the provider degrades to the
-# remaining two and says so, rather than failing the sweep.
+# remaining feeds and says so, rather than failing the sweep.
+#
+# Feed addresses rot, and which one is *right* is not obvious from the outside:
+# GlobeNewswire's "public companies" feed turns out to be global, carrying
+# Nordic and French releases (and French-language duplicates) that no US ticker
+# will ever resolve. `python -m app.probe_feed --candidates` measures the
+# alternatives from a machine that can reach them; CANDIDATE_FEEDS below is
+# what it tests.
 DEFAULT_WIRE_FEEDS: list[WireFeed] = [
     WireFeed(
-        url=("https://www.globenewswire.com/RssFeed/orgclass/1/feedTitle/"
-             "GlobeNewswire%20-%20News%20about%20Public%20Companies"),
+        url=("https://www.globenewswire.com/RssFeed/country/United%20States/"
+             "feedTitle/GlobeNewswire%20-%20News%20from%20United%20States"),
         source="GlobeNewswire",
         tier=SourceTier.PRIMARY),
     WireFeed(
-        url="https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeEF9YWQ==",
+        url="https://www.businesswire.com/portal/site/home/news/",
         source="Business Wire",
         tier=SourceTier.PRIMARY),
     WireFeed(
@@ -98,6 +113,35 @@ DEFAULT_WIRE_FEEDS: list[WireFeed] = [
         source="PR Newswire",
         tier=SourceTier.PRIMARY),
 ]
+
+# Every address worth trying, per wire, most promising first. The probe reports
+# item count, recency and — the figure that actually matters — how many
+# releases carry an exchange-qualified ticker. Nothing here is asserted to
+# work; that is the point of measuring.
+CANDIDATE_FEEDS: dict[str, list[str]] = {
+    "GlobeNewswire": [
+        # US-only. The whole problem with the global feed is that most of it is
+        # not US-listed, so no amount of body fetching will resolve a ticker.
+        ("https://www.globenewswire.com/RssFeed/country/United%20States/"
+         "feedTitle/GlobeNewswire%20-%20News%20from%20United%20States"),
+        ("https://www.globenewswire.com/RssFeed/orgclass/1/feedTitle/"
+         "GlobeNewswire%20-%20News%20about%20Public%20Companies"),
+        ("https://www.globenewswire.com/RssFeed/language/en/feedTitle/"
+         "GlobeNewswire%20-%20News%20in%20English"),
+    ],
+    "Business Wire": [
+        "https://www.businesswire.com/portal/site/home/news/",
+        "https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeEF9YWQ==",
+        "https://www.businesswire.com/portal/site/home/news/subject/?vnsId=31333",
+    ],
+    "PR Newswire": [
+        "https://www.prnewswire.com/rss/news-releases-list.rss",
+        "https://www.prnewswire.com/apac/rss/news-releases-list.rss",
+        ("https://www.prnewswire.com/rss/financial-services-latest-news/"
+         "financial-services-latest-news-list.rss"),
+        "https://www.prnewswire.com/rss/all-news-releases-from-PR-newswire-news.rss",
+    ],
+}
 
 
 @dataclass
@@ -164,11 +208,13 @@ class WireFirehoseProvider(NewsProvider):
                  max_body_fetches: int = 25,
                  body_chars: int = 40_000,
                  seen_capacity: int = 8_000,
-                 overlap_seconds: float = 180.0):
+                 overlap_seconds: float = 180.0,
+                 user_agent: str = ""):
         self._feeds = list(feeds if feeds is not None else DEFAULT_WIRE_FEEDS)
+        self.user_agent = user_agent or DEFAULT_USER_AGENT
         self._client = client or httpx.Client(
             timeout=15.0, follow_redirects=True,
-            headers={"User-Agent": "EarningsRadar/1.0 (+research; contact via repo)",
+            headers={"User-Agent": self.user_agent,
                      "Accept": "application/rss+xml, application/xml, text/xml, */*"})
         self._limiter = RateLimiter(rate_per_second=rate_per_second, burst=3)
         self._max_body_fetches = max_body_fetches
