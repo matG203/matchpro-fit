@@ -4,6 +4,67 @@ All notable changes to Earnings Radar are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project
 uses semantic versioning.
 
+## [0.3.6] — 2026-08-30
+
+### Added
+
+- **The free newswires are wired into catalyst detection.** `WireFirehoseProvider`
+  polls the public RSS firehoses of GlobeNewswire, Business Wire and PR
+  Newswire — no key, no licence, three requests per sweep regardless of
+  universe size. Until now Catalyst Sentinel ran on `MockNewsProvider`, which
+  returns nothing: the news half of the pipeline was built, tested and
+  receiving zero articles.
+
+  This is not a marginal gain. An FDA decision, Phase 2/3 topline data, a
+  contract award or a guidance change all cross the wire *first* and are 8-K'd
+  afterwards, sometimes the next morning. SEC-only detection saw those
+  catalysts only once the market already had them.
+
+  The existing `RssNewswireProvider` talks to the same wires but per company,
+  via their search feeds — 800 requests a sweep across a 400-name universe.
+  These feeds are the opposite shape, and they reach companies outside our
+  universe, which matters because the universe is seeded by the earnings
+  calendar and starts nearly empty. Wire releases carry an exchange-qualified
+  ticker ("(NASDAQ: KTRX)"), which `resolve_entity` scores at 0.98 with no
+  universe entry at all.
+
+- **`/news` — evidence that news is being read and used.** Three questions,
+  answered separately: are the wires alive (per-feed health read from the live
+  provider, since a dead feed writes no rows to point at); what came in and
+  what became of it (every item's fate, discards included, with the reason);
+  and did the alert land before the market moved. Backed by
+  `/api/catalyst/ingestion` and `/api/catalyst/lead-time`.
+
+- **`price_on_tape_at_alert`** on `CatalystOutcome`. The existing
+  `price_at_alert` records what the *feed* showed when the alert fired — on the
+  15-minute delayed plan, a price from a quarter of an hour earlier, which
+  would report that no move had started for every alert ever sent. The outcome
+  pass now also reconstructs the real tape price at that instant from
+  historical bars. Every lead-time figure uses that one.
+
+- **Railway deployment.** `railway.json`, an `app.entrypoint` that reads the
+  host's `$PORT`, and `DEPLOY.md` written for someone who has not used Railway.
+  The entrypoint says loudly what a misconfiguration will cost: SQLite on a
+  container host means a database wiped on every deploy, and since alert
+  deduplication is a database row, each restart would re-detect the last hour
+  of news and push all of those alerts again.
+
+- Preflight fetches all three wires for real and reports what came back — not
+  "did the request succeed" but "did we get releases, are they recent, and do
+  they carry the ticker tags entity resolution needs". The build environment
+  cannot reach the wires, so parsing is proven against recorded samples of each
+  feed's format; this is the only place the live question can honestly be asked.
+
+### Fixed
+
+- **A hosted deployment reported NOT READY when correctly configured.**
+  Preflight's `.env` check failed when no `.env` file existed, which is exactly
+  the normal state on Railway, where variables are injected directly. It now
+  reports where the keys actually came from.
+- **`postgres://` connection strings killed the process at import.** Railway,
+  Heroku and Render still hand out the alias SQLAlchemy 2 removed. Normalised
+  in `get_engine`, since the operator never typed that URL and cannot edit it.
+
 ## [0.3.5] — 2026-08-30
 
 ### Fixed

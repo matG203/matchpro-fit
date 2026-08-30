@@ -1,9 +1,10 @@
 """Catalyst Sentinel JSON API (spec §99-101)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import desc
 
+from app.api.routes import get_container
 from app.db.catalyst_models import (
     CatalystAlert,
     CatalystEvent,
@@ -290,6 +291,32 @@ def _band_label(score: float) -> str:
         if score >= threshold:
             return label
     return "<7.0"
+
+
+@router.get("/ingestion")
+def ingestion(hours: int = 24, limit: int = 80, container=Depends(get_container)) -> dict:
+    """Evidence that news is being read, and what became of each item.
+
+    Feed health comes from the live provider objects rather than the database,
+    so a wire that has stopped responding shows as broken here even though it
+    has, by definition, written no rows to point at.
+    """
+    from app.services.news_evidence import ingestion_report
+
+    providers = (container.catalyst.news_providers
+                 if container is not None and container.catalyst.enabled else [])
+    with db_session() as session:
+        return ingestion_report(session, providers=providers, hours=hours, limit=limit)
+
+
+@router.get("/lead-time")
+def lead_time(limit: int = 40, container=Depends(get_container)) -> dict:
+    """Evidence on whether alerts arrive before the market reacts."""
+    from app.services.news_evidence import lead_time_report
+
+    delay = container.settings.market_data_delay_seconds if container is not None else 0.0
+    with db_session() as session:
+        return lead_time_report(session, limit=limit, delay_seconds=delay)
 
 
 @router.get("/news")

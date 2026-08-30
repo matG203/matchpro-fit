@@ -375,7 +375,14 @@ class CatalystOutcome(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     event_id: Mapped[int] = mapped_column(ForeignKey("catalyst_events.id"), unique=True)
     price_at_detection: Mapped[float | None] = mapped_column(Float)
+    # What the price feed showed us at the moment of alerting. On a 15-minute
+    # delayed plan that is a quarter-hour stale by construction.
     price_at_alert: Mapped[float | None] = mapped_column(Float)
+    # What the tape actually was at that instant, reconstructed afterwards from
+    # historical bars. The pair is the point: comparing them is the only honest
+    # way to say whether an alert arrived before the market moved, rather than
+    # before we could see that it had.
+    price_on_tape_at_alert: Mapped[float | None] = mapped_column(Float)
     price_earliest_public: Mapped[float | None] = mapped_column(Float)
 
     ret_1m: Mapped[float | None] = mapped_column(Float)

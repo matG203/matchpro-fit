@@ -26,6 +26,15 @@ All times display in **Europe/London** and handle BST/GMT automatically.
 
 **This system never trades. It detects, analyses, scores and notifies — you decide.**
 
+Detection runs on two live sources: **SEC EDGAR** filings, and the public
+newswire firehoses (**GlobeNewswire, Business Wire, PR Newswire** — free, no
+key). The wires matter because most non-earnings catalysts cross them first and
+are 8-K'd afterwards. The [`/news`](#dashboard--api) page shows exactly what has
+been read, what was discarded and why, and — for anything that alerted — how
+much of the move was still ahead when the alert fired.
+
+To run it continuously without leaving a laptop on, see **[DEPLOY.md](DEPLOY.md)**.
+
 ### Catalyst Sentinel in one paragraph
 
 It is *not* a sentiment reader. "Positive-sounding news" scores nothing. Each
@@ -275,6 +284,9 @@ extraction, and a mismatch lowers confidence.
 | `/api/releases/{id}` | Full detail JSON |
 | `/catalysts` | Live catalysts — score, components, abnormal move |
 | `/catalysts/{id}` | Full catalyst detail: what's new, economics, offsets, adversarial review, pipeline timeline |
+| `/news` | **News evidence** — are the wires alive, what came in and what became of it, and did the alert beat the market |
+| `/api/catalyst/ingestion` | Feed health + every item's fate, discards included |
+| `/api/catalyst/lead-time` | Disclosure → detection → alert, measured against the tape rather than the delayed feed |
 | `/api/catalyst/live` | Live catalysts JSON |
 | `/api/catalyst/events/{id}` | Full catalyst detail JSON |
 | `/api/catalyst/performance` | Calibration by event type and score band |

@@ -499,6 +499,8 @@ def test_the_v0_3_upgrade_path_works_on_a_populated_database(db):
         ("reaction_analysis", "move_observable"),
         ("reaction_analysis", "data_delay_seconds"),
         ("scores", "scoring_inputs"),
+        # 0.3.6 — the tape price at alert time, added for the lead-time view.
+        ("catalyst_outcomes", "price_on_tape_at_alert"),
     ]
     with engine.begin() as conn:
         for table, column in added_since_0_3_0:

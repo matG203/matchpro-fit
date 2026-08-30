@@ -139,6 +139,17 @@ class OutcomeCaptureService:
                  .order_by(CatalystAlert.id.asc()).first())
         if alert is not None and alert.price_at_alert:
             outcome.price_at_alert = alert.price_at_alert
+        if alert is not None:
+            # What the tape actually was when the alert went out, as opposed to
+            # what the feed could show us at the time. On a delayed plan those
+            # differ by the whole delay, and only this one can answer "did the
+            # alert arrive before the market moved?" — the other answers the
+            # much weaker "before we could see that it had".
+            sent = from_db(alert.sent_at) or from_db(alert.created_at)
+            if sent is not None and sent <= now:
+                on_tape = price_at(bars, sent)
+                if on_tape is not None:
+                    outcome.price_on_tape_at_alert = on_tape
 
         for suffix, minutes in HORIZONS:
             target = disclosure + timedelta(minutes=minutes)

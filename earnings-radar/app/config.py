@@ -84,6 +84,38 @@ class Settings(BaseSettings):
     catalyst_poll_seconds: int = 30
     benzinga_api_key: str = ""
 
+    # ── Free newswire firehoses ──────────────────────────────────────────────
+    #
+    # The public RSS feeds of GlobeNewswire, Business Wire and PR Newswire.
+    # No key and no cost; the trade against a licensed feed is detection
+    # latency, bounded by CATALYST_POLL_SECONDS rather than being unknown.
+    wire_feeds_enabled: bool = True
+    # Extra feeds, comma-separated. Either "url" or "url|Source Name". These
+    # are tiered NEWSWIRE, not PRIMARY: we can vouch for the three built-in
+    # wires' content, not for an arbitrary feed's.
+    wire_feed_urls: str = ""
+    # Only the built-in wires, without the extras. Useful for reverting.
+    wire_use_default_feeds: bool = True
+    # Release pages fetched per sweep to recover the body (and with it the
+    # "(NASDAQ: ABC)" tag the RSS summary usually omits). A ceiling, not a
+    # target: a normal sweep fetches one or two.
+    wire_max_body_fetches: int = 25
+    wire_body_chars: int = 40_000
+
+    def wire_feed_list(self) -> list[tuple[str, str]]:
+        """Parse WIRE_FEED_URLS into (url, source name) pairs."""
+        out: list[tuple[str, str]] = []
+        for raw in (self.wire_feed_urls or "").split(","):
+            raw = raw.strip()
+            if not raw:
+                continue
+            url, _, label = raw.partition("|")
+            url = url.strip()
+            if not url:
+                continue
+            out.append((url, label.strip() or url))
+        return out
+
     # Catalyst market data
     #
     # How far behind live the price feed is. Polygon's Stocks Starter plan is

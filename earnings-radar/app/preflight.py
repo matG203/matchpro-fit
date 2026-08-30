@@ -87,7 +87,7 @@ class PreflightReport:
 
 
 def run_preflight(settings: Settings | None = None, *,
-                  polygon=None, fmp=None, sec=None, notifiers=None,
+                  polygon=None, fmp=None, sec=None, notifiers=None, wires=None,
                   now: datetime | None = None, cwd=None) -> PreflightReport:
     """One real call per capability. Providers are injectable for testing."""
     settings = settings or get_settings()
@@ -98,6 +98,7 @@ def run_preflight(settings: Settings | None = None, *,
     _check_polygon(report, settings, polygon, now)
     _check_float(report, settings, fmp)
     _check_sec(report, settings, sec)
+    _check_wires(report, settings, wires, now)
     _check_llm(report, settings)
     _check_push(report, settings, notifiers)
     return report
@@ -136,19 +137,30 @@ def _check_config(report: PreflightReport, settings: Settings,
     }
     loaded = [name for name, value in keys.items() if value]
 
+    detail = "; ".join(f"{name} {_mask(value)}" for name, value in keys.items())
+
     if not env_file.exists():
+        if loaded:
+            # A hosted deployment has no .env at all — Railway, Render and the
+            # rest inject variables directly. Calling that a failure would send
+            # someone hunting a file that is not supposed to exist, and would
+            # make a correctly configured server report NOT READY.
+            report.add("Configuration — environment", OK,
+                       f"no .env file; {len(loaded)} keys read from the "
+                       f"environment (normal for a hosted deployment)")
+            report.add("Configuration — keys", OK, detail)
+            return
         decoys = sorted(p.name for p in root.glob(".env.*")
                         if p.name in {".env.txt", ".env.text"})
         hint = (f"found {decoys[0]} instead — Notepad appended .txt; "
                 f'rename it to .env (in Explorer: View → File name extensions)'
                 if decoys else
-                f"no .env in {root} — are you running from the project folder?")
+                f"no .env in {root}, and no keys in the environment either — "
+                f"are you running from the project folder?")
         report.add("Configuration — .env", FAIL,
-                   f"no .env file was read; {len(loaded)} keys are set from the "
-                   "environment", hint)
+                   "no configuration was found from any source", hint)
         return
 
-    detail = "; ".join(f"{name} {_mask(value)}" for name, value in keys.items())
     if not loaded:
         report.add("Configuration — .env", FAIL,
                    f"{env_file} exists but no keys were read from it",
@@ -320,6 +332,108 @@ def _check_sec(report: PreflightReport, settings: Settings, sec) -> None:
     except (ProviderError, ProviderUnavailable) as exc:
         report.add("SEC — latest filings feed", FAIL, str(exc),
                    "This is the only detection source; nothing is found without it")
+
+
+def _check_wires(report: PreflightReport, settings: Settings, wires,
+                 now: datetime) -> None:
+    """Fetch every newswire firehose for real, and read what came back.
+
+    This check exists because the build environment cannot reach the wires:
+    parsing is proven against recorded samples of each feed's format, but
+    nothing offline can prove the URLs still serve those formats today. This
+    is the only place that question gets an honest answer, so it asks it
+    properly — not "did the request succeed" but "did we get releases, are
+    they recent, and do they carry the ticker tags entity resolution needs".
+
+    A dead wire is the quietest failure in the system. It produces no error,
+    no alert and no log line: just a market that seems to have gone silent.
+    """
+    from app.providers.base import ProviderError
+
+    if not settings.wire_feeds_enabled:
+        report.add("Newswires — free feeds", SKIP,
+                   "WIRE_FEEDS_ENABLED is false; SEC filings only",
+                   "Set WIRE_FEEDS_ENABLED=true to see catalysts before they are 8-K'd")
+        return
+
+    if wires is None:
+        from app.catalyst.enums import SourceTier
+        from app.providers.wires import (
+            DEFAULT_WIRE_FEEDS,
+            WireFeed,
+            WireFirehoseProvider,
+        )
+
+        feeds = list(DEFAULT_WIRE_FEEDS) if settings.wire_use_default_feeds else []
+        feeds += [WireFeed(url=url, source=label, tier=SourceTier.NEWSWIRE)
+                  for url, label in settings.wire_feed_list()]
+        if not feeds:
+            report.add("Newswires — free feeds", FAIL,
+                       "wire feeds are enabled but none are configured",
+                       "Set WIRE_USE_DEFAULT_FEEDS=true, or list feeds in WIRE_FEED_URLS")
+            return
+        # No body fetches: this is a connectivity check, not a sweep.
+        wires = WireFirehoseProvider(feeds=feeds, max_body_fetches=0)
+
+    try:
+        # A wide window so the check works at 3am on a Sunday, when the wires
+        # are genuinely quiet and a narrow one would look like a failure.
+        articles = wires.fetch_since(now - timedelta(hours=24))
+    except ProviderError as exc:
+        report.add("Newswires — free feeds", FAIL, str(exc),
+                   "Every wire is unreachable. Check outbound HTTPS, or set "
+                   "WIRE_FEEDS_ENABLED=false to run on SEC filings alone")
+        return
+
+    live = [h for h in wires.health() if h.ok]
+    dead = [h for h in wires.health() if not h.ok]
+    total = sum(h.items_seen for h in live)
+
+    for health in dead:
+        # A warning, not a block: the remaining wires and SEC still work, and
+        # refusing to start over one rotted URL would cost more coverage than
+        # it protects. Losing every wire is the FAIL, and it is handled above.
+        report.add(f"Newswire — {health.source}", WARN,
+                   health.error or "no response",
+                   "This wire's feed URL may have changed. Coverage continues "
+                   "on the other wires; fix or replace it via WIRE_FEED_URLS")
+
+    if not live:
+        return
+
+    detail = ", ".join(f"{h.source}: {h.items_seen} releases" for h in live)
+    if total == 0:
+        report.add("Newswires — free feeds", FAIL,
+                   f"reachable but empty over 24 hours ({detail})",
+                   "An empty firehose means the feed shape changed. Nothing "
+                   "will be detected from news until this is fixed")
+        return
+
+    newest = max((h.newest_item_at for h in live if h.newest_item_at), default=None)
+    age = f", newest {(now - newest).total_seconds() / 60:.0f} min old" if newest else ""
+    report.add("Newswires — free feeds", OK, f"{total} releases in 24h ({detail}){age}")
+
+    # Parsing the feed is not the same as being able to use it. Entity
+    # resolution needs an exchange-qualified ticker, and if the wires stopped
+    # including them the whole news stream would resolve to nothing while
+    # every other check stayed green.
+    from app.catalyst.entities import resolve_entity
+
+    checked = articles[:60]
+    if not checked:
+        return
+    tagged = sum(
+        1 for a in checked
+        if resolve_entity(headline=a.headline, body=a.body,
+                          known_companies={}).confidence >= settings.min_entity_confidence)
+    pct = 100.0 * tagged / len(checked)
+    status = OK if pct >= 20 else WARN
+    report.add("Newswires — ticker tags", status,
+               f"{tagged}/{len(checked)} releases ({pct:.0f}%) resolve to a ticker "
+               f"from the RSS summary alone",
+               "" if status == OK else
+               "Low, but not necessarily broken: the exchange tag usually sits in "
+               "the release body, which a live sweep fetches and this check does not")
 
 
 def _check_llm(report: PreflightReport, settings: Settings) -> None:

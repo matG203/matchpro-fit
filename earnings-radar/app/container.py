@@ -169,9 +169,11 @@ def _build_catalyst(settings: Settings, notifiers: list[NotifierProvider],
     """Assemble Catalyst Sentinel. Runs with a mock news feed when no wire is
     configured, so the subsystem is exercisable without credentials."""
     from app.catalyst.alerts import CatalystNotifier
+    from app.catalyst.enums import SourceTier
     from app.catalyst.investigator import CatalystInvestigator
     from app.catalyst.pipeline import CatalystPipeline
     from app.providers.news import MockNewsProvider
+    from app.providers.wires import DEFAULT_WIRE_FEEDS, WireFeed, WireFirehoseProvider
     from app.services.catalyst_market import CatalystMarketDataService
     from app.services.catalyst_poller import CatalystPollingService
     from app.services.outcomes import OutcomeCaptureService
@@ -185,10 +187,28 @@ def _build_catalyst(settings: Settings, notifiers: list[NotifierProvider],
     if settings.benzinga_api_key:
         # A licensed wire would be constructed here; the interface is ready.
         logger.info("Benzinga key present — real news provider not yet implemented")
+
+    # The free wires. These carry the catalysts EDGAR cannot see in time: an
+    # FDA decision, Phase 2/3 topline data, a contract award or a guidance
+    # change all cross the wire first and are 8-K'd afterwards.
+    if settings.wire_feeds_enabled:
+        feeds = list(DEFAULT_WIRE_FEEDS) if settings.wire_use_default_feeds else []
+        feeds += [WireFeed(url=url, source=label, tier=SourceTier.NEWSWIRE)
+                  for url, label in settings.wire_feed_list()]
+        if feeds:
+            news_providers.append(WireFirehoseProvider(
+                feeds=feeds,
+                max_body_fetches=settings.wire_max_body_fetches,
+                body_chars=settings.wire_body_chars))
+            logger.info("newswire firehoses enabled: %s",
+                        ", ".join(f.source for f in feeds))
+        else:
+            logger.warning("WIRE_FEEDS_ENABLED is on but no feeds are configured")
+
     if not news_providers:
         news_providers.append(MockNewsProvider())
         logger.warning(
-            "no licensed news feed configured — Catalyst Sentinel running on the mock "
+            "no news feed configured — Catalyst Sentinel running on the mock "
             "provider; SEC filings remain the live primary source")
 
     investigator = CatalystInvestigator() if llm_available else None

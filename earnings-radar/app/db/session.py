@@ -16,14 +16,31 @@ _engine = None
 _SessionLocal: sessionmaker | None = None
 
 
+def normalise_database_url(url: str) -> str:
+    """Make a hosting provider's DATABASE_URL usable by SQLAlchemy 2.
+
+    Railway, Heroku and Render hand out `postgres://…`. SQLAlchemy dropped that
+    alias in 2.0 and fails at startup with "Can't load plugin:
+    sqlalchemy.dialects:postgres" — a deployment that dies before it logs
+    anything useful, over a URL the operator never typed and cannot edit.
+    Pinning the driver explicitly also stops SQLAlchemy picking a different
+    DBAPI if one is installed later.
+    """
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg2://" + url[len(prefix):]
+    return url
+
+
 def get_engine():
     global _engine, _SessionLocal
     if _engine is None:
         settings = get_settings()
+        url = normalise_database_url(settings.database_url)
         kwargs: dict = {"pool_pre_ping": True}
-        if settings.database_url.startswith("sqlite"):
+        if url.startswith("sqlite"):
             kwargs = {"connect_args": {"check_same_thread": False}}
-        _engine = create_engine(settings.database_url, **kwargs)
+        _engine = create_engine(url, **kwargs)
         _SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False)
     return _engine
 

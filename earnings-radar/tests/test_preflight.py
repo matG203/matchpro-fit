@@ -90,6 +90,42 @@ class FakeNotifier:
         return self._on
 
 
+class FakeWires:
+    """Stands in for the newswire firehoses.
+
+    Injected everywhere, including the default `run()` kwargs: without it
+    `_check_wires` builds a real provider and the test suite starts making
+    outbound requests to three press-release sites on every run.
+    """
+
+    def __init__(self, articles=None, error=None, health=None):
+        from app.providers.wires import WireFeedHealth
+        self.error = error
+        self._articles = articles if articles is not None else [
+            _wire_article("Kestrel Therapeutics Announces FDA Approval",
+                          "Kestrel Therapeutics Inc. (NASDAQ: KTRX) announced."),
+        ]
+        self._health = health if health is not None else [
+            WireFeedHealth(source="GlobeNewswire", url="https://gnw.test/f", ok=True,
+                           items_seen=40, items_new=1,
+                           newest_item_at=NOW - timedelta(minutes=6)),
+        ]
+
+    def fetch_since(self, since):
+        if self.error:
+            raise self.error
+        return list(self._articles)
+
+    def health(self):
+        return list(self._health)
+
+
+def _wire_article(headline, body):
+    from app.providers.news import NewsArticle
+    return NewsArticle(provider="wire_rss", article_id=headline, headline=headline,
+                       body=body, published_at_utc=NOW - timedelta(minutes=6))
+
+
 @pytest.fixture(scope="module")
 def env_dir(tmp_path_factory):
     """A folder that looks correctly configured, so the provider checks can be
@@ -101,7 +137,7 @@ def env_dir(tmp_path_factory):
 
 def run(conf=None, *, cwd=None, **kwargs) -> PreflightReport:
     defaults = dict(polygon=FakePolygon(), fmp=FakeFmp(), sec=FakeSec(),
-                    notifiers=[FakeNotifier()], now=NOW)
+                    notifiers=[FakeNotifier()], wires=FakeWires(), now=NOW)
     defaults.update(kwargs)
     return run_preflight(conf or settings(), cwd=cwd or _ENV_DIR[0], **defaults)
 
@@ -186,8 +222,8 @@ def test_a_quiet_minute_is_not_reported_as_a_wrong_setting():
 
 def test_a_missing_polygon_key_blocks():
     report = run_preflight(settings(polygon_api_key=""), fmp=FakeFmp(),
-                           sec=FakeSec(), notifiers=[FakeNotifier()], now=NOW,
-                           cwd=_ENV_DIR[0])
+                           sec=FakeSec(), notifiers=[FakeNotifier()],
+                           wires=FakeWires(), now=NOW, cwd=_ENV_DIR[0])
     assert status_of(report, "Polygon — API key") == FAIL
     assert report.ready is False
 
@@ -238,6 +274,87 @@ def test_missing_short_interest_is_a_warning_not_a_failure():
 def test_missing_float_is_a_warning():
     report = run(fmp=FakeFmp(value=None))
     assert status_of(report, "FMP — free float") == WARN
+    assert report.ready is True
+
+
+# ── newswires ─────────────────────────────────────────────────────────────────
+
+
+def test_live_wires_report_what_they_returned():
+    report = run()
+    entry = check(report, "Newswires — free feeds")
+
+    assert entry.status == OK
+    assert "40 releases" in entry.detail
+    assert "GlobeNewswire" in entry.detail
+    assert report.ready is True
+
+
+def test_every_wire_being_unreachable_blocks():
+    from app.providers.base import ProviderError
+
+    report = run(wires=FakeWires(error=ProviderError("all three refused")))
+    entry = check(report, "Newswires — free feeds")
+
+    assert entry.status == FAIL
+    assert "all three refused" in entry.detail
+    assert report.ready is False
+
+
+def test_a_reachable_but_empty_firehose_blocks():
+    """The failure this check exists for.
+
+    A feed whose URL still resolves but whose shape has changed returns zero
+    items. Nothing errors, nothing logs, and the system quietly stops seeing
+    news — indistinguishable from a slow day unless something asserts on it.
+    """
+    from app.providers.wires import WireFeedHealth
+
+    report = run(wires=FakeWires(
+        articles=[],
+        health=[WireFeedHealth(source="GlobeNewswire", url="https://gnw.test/f",
+                               ok=True, items_seen=0)]))
+    entry = check(report, "Newswires — free feeds")
+
+    assert entry.status == FAIL
+    assert "empty over 24 hours" in entry.detail
+    assert report.ready is False
+
+
+def test_one_dead_wire_is_reported_without_blocking_the_run():
+    from app.providers.wires import WireFeedHealth
+
+    report = run(wires=FakeWires(health=[
+        WireFeedHealth(source="GlobeNewswire", url="https://gnw.test/f", ok=True,
+                       items_seen=40, newest_item_at=NOW - timedelta(minutes=6)),
+        WireFeedHealth(source="PR Newswire", url="https://prn.test/f", ok=False,
+                       error="404 Not Found"),
+    ]))
+
+    assert status_of(report, "Newswire — PR Newswire") == WARN
+    assert status_of(report, "Newswires — free feeds") == OK
+    # Visible, but not a block: SEC and the surviving wires still work, and
+    # refusing to start over one rotted URL loses more coverage than it saves.
+    assert report.ready is True
+
+
+def test_releases_without_ticker_tags_warn_rather_than_pass_silently():
+    report = run(wires=FakeWires(articles=[
+        _wire_article("Something happened at a company", "No ticker anywhere."),
+        _wire_article("Another vague headline", "Still no ticker."),
+    ]))
+    entry = check(report, "Newswires — ticker tags")
+
+    assert entry.status == WARN
+    assert "0/2" in entry.detail
+    assert report.ready is True
+
+
+def test_disabling_the_wires_is_a_skip_not_a_failure():
+    report = run(settings(wire_feeds_enabled=False))
+    entry = check(report, "Newswires — free feeds")
+
+    assert entry.status == SKIP
     assert report.ready is True
 
 
@@ -356,6 +473,25 @@ def test_running_from_the_wrong_folder_is_named(tmp_path):
     entry = check(report, "Configuration — .env")
     assert entry.status == FAIL
     assert "project folder" in entry.fix
+
+
+def test_a_hosted_deployment_with_no_env_file_is_correctly_configured(tmp_path):
+    """Railway and the rest inject variables directly; there is no `.env` and
+    there is not supposed to be one. Calling that a failure would send someone
+    hunting a file that should not exist, and would make a correctly set-up
+    server report NOT READY on the page the deploy guide tells them to check.
+    """
+    from app.preflight import _check_config
+
+    report = PreflightReport()
+    _check_config(report, settings(anthropic_api_key="sk-ant-abcd1234efgh5678",
+                                   polygon_api_key="poly-abcd1234"), cwd=tmp_path)
+
+    assert status_of(report, "Configuration — environment") == OK
+    assert "hosted deployment" in check(report, "Configuration — environment").detail
+    assert report.ready is True
+    # And still never prints a key in full.
+    assert "sk-ant-abcd1234efgh5678" not in report.render()
 
 
 def test_an_env_file_that_parsed_to_nothing_is_a_failure(tmp_path):
