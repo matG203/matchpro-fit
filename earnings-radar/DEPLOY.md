@@ -43,8 +43,13 @@ across from there.
 it), so a mirroring copy would delete it:
 
 ```powershell
-copy C:\Users\matra\earnings-radar\.env $env:USERPROFILE\Desktop\env-backup.txt
+copy C:\Users\matra\earnings-radar\.env $env:USERPROFILE\env-backup.txt
+dir $env:USERPROFILE\env-backup.txt
 ```
+
+The second line must list a file before you go any further. Do not use Desktop
+for this: OneDrive redirects it on many machines, so `$env:USERPROFILE\Desktop`
+often does not exist. Your user folder always does.
 
 Get a fresh copy of the update branch. This clones into a throwaway folder —
 it is not your project, and you can delete it afterwards:
@@ -85,7 +90,7 @@ dir C:\Users\matra\earnings-radar\DEPLOY.md
 If `.env` is missing for any reason, copy the backup back:
 
 ```powershell
-copy $env:USERPROFILE\Desktop\env-backup.txt C:\Users\matra\earnings-radar\.env
+copy $env:USERPROFILE\env-backup.txt C:\Users\matra\earnings-radar\.env
 ```
 
 Then tidy up the throwaway clone:
