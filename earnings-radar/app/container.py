@@ -81,6 +81,7 @@ class Container:
     pipeline: EarningsPipeline
     scheduler: SchedulerService
     catalyst: CatalystStack
+    earnings_rescore: object | None = None
 
     def provider_status(self) -> dict[str, bool]:
         return {
@@ -92,6 +93,8 @@ class Container:
             "anthropic": self.analysis is not None,
             "notifiers": [n.name for n in self.notifiers if n.enabled()],
             "catalyst": self.catalyst.status(),
+            "earnings_rescore": bool(
+                self.earnings_rescore is not None and self.earnings_rescore.available),
         }
 
 
@@ -138,16 +141,26 @@ def build_container(settings: Settings | None = None) -> Container:
 
     catalyst = _build_catalyst(settings, notifiers, analysis is not None,
                                polygon=polygon, fmp=fmp, sec=sec)
+
+    # Earnings land after the close, so their reaction is invisible on a
+    # delayed feed at the moment of scoring. Without this pass the veto for
+    # unavailable prices would never lift and no release could reach 9+.
+    from app.services.rescore import EarningsRescoreService
+    earnings_rescore = EarningsRescoreService(
+        settings=settings, market=market if prices else None,
+        notifications=notifications)
+
     scheduler = SchedulerService(settings=settings, discovery=discovery, pipeline=pipeline,
                                  catalyst_poller=catalyst.poller,
                                  outcomes=catalyst.outcomes,
-                                 rescore=catalyst.rescore)
+                                 rescore=catalyst.rescore,
+                                 earnings_rescore=earnings_rescore)
 
     return Container(settings=settings, calendars=calendars, profiles=profiles,
                      prices=prices, filings=sec, newswires=newswires, notifiers=notifiers,
                      discovery=discovery, market=market, monitor=monitor, analysis=analysis,
                      notifications=notifications, pipeline=pipeline, scheduler=scheduler,
-                     catalyst=catalyst)
+                     catalyst=catalyst, earnings_rescore=earnings_rescore)
 
 
 def _build_catalyst(settings: Settings, notifiers: list[NotifierProvider],

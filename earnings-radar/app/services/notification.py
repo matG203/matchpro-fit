@@ -48,10 +48,25 @@ class NotificationService:
         self._high_score_alert = high_score_alert
         self._min_confidence = min_confidence
 
+    def band(self, score: float, needs_verification: bool = False) -> str:
+        """Coarse decision bands. Re-notifying is warranted only when a score
+        crosses one of these — a drift from 9.1 to 9.2 is not a new decision."""
+        if score < self._min_score:
+            return "below"
+        if score >= self._high_score_alert and not needs_verification:
+            return "high"
+        return "normal"
+
     def notify_score(self, session: Session, *, release_id: int, canonical_key: str,
                      ticker: str, score: float, confidence: float,
-                     model_version: str, provisional: bool = False) -> bool:
-        """Idempotent dispatch. Returns True if at least one channel sent."""
+                     model_version: str, provisional: bool = False,
+                     revision: int = 1) -> bool:
+        """Idempotent dispatch. Returns True if at least one channel sent.
+
+        `revision` lets a genuinely new decision through the dedup key — a
+        re-score that crossed a band. The caller decides, because only it knows
+        whether the band actually changed.
+        """
         if score < self._min_score:
             return False
         needs_verification = confidence < self._min_confidence
@@ -62,7 +77,8 @@ class NotificationService:
 
         sent_any = False
         for notifier in self._notifiers:
-            dedup_key = f"{canonical_key}|{model_version}|{notifier.name}"
+            suffix = "" if revision <= 1 else f"|r{revision}"
+            dedup_key = f"{canonical_key}|{model_version}|{notifier.name}{suffix}"
             existing = session.query(Notification).filter_by(dedup_key=dedup_key).first()
             if existing and existing.status == "SENT":
                 continue

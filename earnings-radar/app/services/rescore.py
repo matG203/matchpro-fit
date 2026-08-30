@@ -1,12 +1,23 @@
-"""Re-scoring — revisiting a catalyst once the price data catches up.
+"""Re-scoring — revisiting a score once the price data catches up.
 
-On a delayed feed (Polygon's Starter plan is 15 minutes behind) a filing is
-detected and scored before the market's reaction is visible. The first score is
-therefore honest but incomplete: Reaction Room is unresolved, and the score is
-capped for it. This pass returns when the data arrives, recomputes the
+Two passes live here, one per pipeline, because they solve the same problem:
+a delayed feed means the market's response is invisible at the moment we first
+score, and a score made without it is incomplete rather than wrong.
+
+The earnings case is the sharper one. US releases land at 16:05 ET — 21:05 UK —
+and the whole reaction happens in the after-hours session. With a 15-minute
+feed, the reaction is not visible at the moment of scoring, so market
+confirmation is withheld and the release takes the "unavailable live price
+feeds" veto, which caps it at 8.9. Without this pass that cap would be
+permanent: the earnings pipeline would score every release, veto every one of
+them, and never once alert.
+
+The catalyst case is the same shape: a filing is detected and scored before the
+market's reaction is visible, so Reaction Room is unresolved and the score is
+capped for it. That pass returns when the data arrives, recomputes the
 market-derived half of the score, and writes a new revision.
 
-What it deliberately does **not** do:
+What neither pass does:
 
   * **Re-run Claude.** The adversarial review, the materiality maths and the
     novelty analysis do not change because a price arrived. The original
@@ -45,6 +56,7 @@ from app.db.catalyst_models import (
 from app.db.models import Company
 from app.domain.timeutil import from_db, utcnow
 from app.services.audit import AuditService
+from app.services.marketdata import MarketContextData
 
 logger = logging.getLogger("earnings_radar.catalyst.rescore")
 
@@ -306,3 +318,174 @@ class RescoreService:
         if self._analogue_fn is not None:
             return self._analogue_fn(event_type, structure)
         return amp.default_analogue_move_pct(structure), 0
+
+
+# ── earnings ──────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class EarningsRescoreResult:
+    considered: int = 0
+    rescored: int = 0
+    still_waiting: int = 0
+    notified: int = 0
+    changes: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+
+    def summary(self) -> str:
+        return (f"rescored {self.rescored}/{self.considered}, "
+                f"waiting {self.still_waiting}, notified {self.notified}")
+
+
+class EarningsRescoreService:
+    """Measures the after-hours reaction once the delayed feed can show it.
+
+    Without this, a 15-minute feed permanently withholds market confirmation
+    from every release — the veto never lifts and nothing ever reaches 9+.
+    """
+
+    def __init__(self, *, settings: Settings, market, notifications):
+        self._settings = settings
+        self._market = market
+        self._notifications = notifications
+
+    @property
+    def available(self) -> bool:
+        return self._market is not None
+
+    def run(self, session: Session, now: datetime | None = None) -> EarningsRescoreResult:
+        from app.db.models import EarningsEvent, MarketContext, Release, Score
+        from app.services.scoring import ScoringInputs as EarningsInputs
+        from app.services.scoring import compute_scores
+
+        now = now or utcnow()
+        result = EarningsRescoreResult()
+        if not self.available:
+            return result
+
+        window = now - timedelta(hours=self._settings.rescore_window_hours)
+        pending = (session.query(Score)
+                   .filter(Score.rescored_at.is_(None))
+                   .filter(Score.created_at >= window)
+                   .all())
+
+        for score_row in pending:
+            if not score_row.scoring_inputs:
+                score_row.rescored_at = now      # nothing to rebuild from
+                continue
+            stored = EarningsInputs.from_dict(score_row.scoring_inputs)
+            if not stored.market_data_unresolved:
+                # The reaction was already measured; nothing to revisit.
+                score_row.rescored_at = now
+                continue
+
+            release = session.get(Release, score_row.release_id)
+            if release is None:
+                score_row.rescored_at = now
+                continue
+            published = from_db(release.published_at_utc) or from_db(score_row.created_at)
+            if published is None or published < window:
+                score_row.rescored_at = now
+                continue
+
+            result.considered += 1
+            elapsed = (now - published).total_seconds()
+            if elapsed < self._settings.market_data_delay_seconds:
+                result.still_waiting += 1
+                continue
+
+            try:
+                if self._rescore(session, score_row, release, stored, elapsed,
+                                 now, result, compute_scores,
+                                 EarningsEvent, MarketContext):
+                    result.rescored += 1
+            except Exception as exc:
+                logger.exception("earnings re-score failed for score %s", score_row.id)
+                result.errors.append(f"score {score_row.id}: {exc}")
+
+        if result.rescored:
+            AuditService(session).log("pipeline", "rescore", result.summary(), level="INFO")
+        return result
+
+    def _rescore(self, session: Session, score_row, release, stored,
+                 elapsed: float, now: datetime, result: EarningsRescoreResult,
+                 compute_scores, EarningsEvent, MarketContext) -> bool:
+        event = session.get(EarningsEvent, release.event_id)
+        if event is None:
+            score_row.rescored_at = now
+            return False
+
+        context_row = (session.query(MarketContext)
+                       .filter_by(event_id=event.id).first())
+        if context_row is None or context_row.pre_release_price is None:
+            # No baseline means the move cannot be measured against anything.
+            score_row.rescored_at = now
+            return False
+
+        data = MarketContextData(
+            prev_close=context_row.prev_close,
+            pre_release_price=context_row.pre_release_price,
+            run_5d_pct=context_row.run_5d_pct, run_1m_pct=context_row.run_1m_pct,
+            run_3m_pct=context_row.run_3m_pct,
+            implied_move_pct=context_row.implied_move_pct)
+
+        data = self._market.capture_reaction(
+            event.company.ticker, data, minutes_after=elapsed / 60.0)
+        if data.unresolved:
+            result.still_waiting += 1
+            return False
+
+        before = score_row.final_trade_score
+        before_band = self._notifications.band(before, score_row.needs_verification)
+
+        stored.reaction_pct = data.current_reaction_pct
+        stored.reaction_vs_prev_close_pct = data.reaction_vs_prev_close_pct
+        stored.reaction_pattern = data.reaction_pattern
+        stored.market_data_unresolved = False
+
+        rescored = compute_scores(
+            stored, min_confidence=self._settings.min_confidence_for_notification)
+
+        score_row.score_before_rescore = before
+        score_row.earnings_quality = rescored.earnings_quality
+        score_row.market_confirmation = rescored.market_confirmation
+        score_row.entry_score = rescored.entry_score
+        score_row.final_trade_score = rescored.final_trade_score
+        score_row.component_breakdown = rescored.component_breakdown
+        score_row.vetoes_applied = rescored.vetoes_applied
+        score_row.analysis_confidence = rescored.analysis_confidence
+        score_row.needs_verification = rescored.needs_verification
+        score_row.score_review = rescored.score_review
+        score_row.scoring_inputs = stored.to_dict()
+        score_row.rescored_at = now
+
+        self._persist_context(context_row, data)
+        result.changes.append(
+            f"{event.company.ticker} {before:.1f} → {rescored.final_trade_score:.1f} "
+            f"(reaction {data.current_reaction_pct:+.1f}%)")
+
+        after_band = self._notifications.band(
+            rescored.final_trade_score, rescored.needs_verification)
+        if after_band != before_band and after_band != "below":
+            # A crossed band is a new decision; a drift within one is not.
+            if self._notifications.notify_score(
+                    session, release_id=release.id,
+                    canonical_key=release.canonical_key,
+                    ticker=event.company.ticker,
+                    score=rescored.final_trade_score,
+                    confidence=rescored.analysis_confidence,
+                    model_version=rescored.scoring_model_version,
+                    provisional=rescored.provisional, revision=2):
+                result.notified += 1
+
+        session.flush()
+        return True
+
+    @staticmethod
+    def _persist_context(row, data: MarketContextData) -> None:
+        row.initial_reaction_pct = data.initial_reaction_pct
+        row.current_reaction_pct = data.current_reaction_pct
+        row.reaction_vs_prev_close_pct = data.reaction_vs_prev_close_pct
+        row.reaction_pattern = data.reaction_pattern.value
+        row.unresolved = data.unresolved
+        row.notes = "; ".join(data.notes)[:2000]

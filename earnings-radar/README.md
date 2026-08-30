@@ -65,7 +65,7 @@ tells you exactly which providers are live.
 Run the tests:
 
 ```bash
-.venv/bin/python -m pytest -q          # 315 tests
+.venv/bin/python -m pytest -q          # 320 tests
 .venv/bin/ruff check app tests
 ```
 
@@ -117,11 +117,22 @@ at exactly the moment it matters. So:
 - **Every quote is 15 minutes old on Starter**, so staleness is measured as
   silence *beyond* the feed delay — otherwise every stock would be flagged as
   halted.
-- **Catalysts are re-scored when the data arrives** (`RESCORE_INTERVAL_SECONDS`).
-  The original analysis is reused and only the price half recomputed, so a
-  re-score costs no Claude usage. The first score is kept and marked superseded.
-- **The earnings pipeline withholds market confirmation** inside the delay
-  window rather than recording a 0% reaction as the market failing to confirm.
+- **Both pipelines are re-scored when the data arrives**
+  (`RESCORE_INTERVAL_SECONDS`). The original analysis is reused and only the
+  price half recomputed, so a re-score costs no Claude usage.
+- **Earnings depend on this absolutely.** US releases land at 16:05 ET —
+  21:05 UK — and the whole reaction happens after hours, invisible on a delayed
+  feed at the moment of scoring. The release takes the "unavailable live price
+  feeds" veto, which caps it at 8.9. Without the re-score pass that cap is
+  permanent and **no report could ever reach 9+**. With it:
+
+  ```
+  21:05 UK  scored blind        8.8   veto: unavailable live price feeds
+  21:20 UK  re-scored, +9% AH   9.3   no vetoes
+  ```
+
+  Re-notification is band-based: crossing into a higher band is a new decision
+  and alerts; drifting inside one is silent.
 
 **`/api/catalyst/delay-impact`** answers the upgrade question with your own
 data: not "did scores move" but *how often did waiting 15 minutes change what
@@ -265,7 +276,7 @@ app/
   catalyst/          Catalyst Sentinel: entities, dedup, novelty, classify,
                      materiality, negatives, amplification, reaction, scoring,
                      investigator, alerts, pipeline, SEC routing
-tests/               315 tests incl. earnings regression cases, the catalyst
+tests/               320 tests incl. earnings regression cases, the catalyst
                      false-positive scenarios, the live market-data wiring and
                      the delayed-feed traps
 ```

@@ -61,6 +61,8 @@
 - [x] Re-score pass reusing stored scoring inputs — no second Claude call
 - [x] `/api/catalyst/delay-impact` to answer the upgrade question from real data
 - [x] Earnings pipeline withholds market confirmation inside the delay window
+- [x] Earnings re-score pass — without it the veto never lifts and no
+      release can reach 9+ on a delayed feed
 
 ## Catalyst Sentinel — next
 

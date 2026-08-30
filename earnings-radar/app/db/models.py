@@ -234,6 +234,14 @@ class Score(TimestampMixin, Base):
     score_review: Mapped[bool] = mapped_column(Boolean, default=False)
     provisional: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Everything that produced this number, stored verbatim. On a delayed feed
+    # the market's reaction is not visible when a release is first scored; this
+    # lets the re-score pass replace only the market half of the inputs without
+    # a second LLM call.
+    scoring_inputs: Mapped[dict] = mapped_column(JSON, default=dict)
+    rescored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    score_before_rescore: Mapped[float | None] = mapped_column(Float)
+
 
 class Notification(Base):
     __tablename__ = "notifications"

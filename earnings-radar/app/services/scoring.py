@@ -11,7 +11,8 @@ calibration, confidence, SCORE_REVIEW — is plain code and unit-tested.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
+from typing import ClassVar
 
 from app.domain.enums import GuidanceStatus, ReactionPattern
 
@@ -61,6 +62,39 @@ class ScoringInputs:
     release_source_quality: float = 1.0          # 0-1 (SEC-confirmed = 1.0)
     kpi_completeness: float = 0.5                # 0-1
     llm_fact_mismatch: bool = False
+
+    # ── persistence ───────────────────────────────────────────────────────────
+    # Stored verbatim on the score row so a re-score can replace only the market
+    # fields — the LLM's judgement of the report does not change because a price
+    # arrived, and re-running it would cost real money for the same answer.
+
+    _ENUM_FIELDS: ClassVar[dict[str, type]] = {
+        "guidance_status": GuidanceStatus,
+        "reaction_pattern": ReactionPattern,
+    }
+
+    def to_dict(self) -> dict:
+        return {key: (value.value if key in self._ENUM_FIELDS else value)
+                for key, value in self.__dict__.items()}
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ScoringInputs:
+        """Rebuild from stored JSON, ignoring fields this version no longer
+        has so an old row never crashes a newer scorer."""
+        known = {f.name for f in fields(cls)}
+        kwargs: dict = {}
+        for key, value in (data or {}).items():
+            if key not in known:
+                continue
+            enum_type = cls._ENUM_FIELDS.get(key)
+            if enum_type is not None and value is not None:
+                try:
+                    kwargs[key] = enum_type(value)
+                except ValueError:
+                    continue
+            else:
+                kwargs[key] = value
+        return cls(**kwargs)
 
 
 @dataclass

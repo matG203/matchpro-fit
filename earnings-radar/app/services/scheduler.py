@@ -35,7 +35,8 @@ _ACTIVE_STATES = (EventState.SCHEDULED.value, EventState.MONITORING.value,
 class SchedulerService:
     def __init__(self, *, settings: Settings, discovery: EarningsDiscoveryService,
                  pipeline: EarningsPipeline, monitor_tick_seconds: int = 15,
-                 catalyst_poller=None, outcomes=None, rescore=None):
+                 catalyst_poller=None, outcomes=None, rescore=None,
+                 earnings_rescore=None):
         self._settings = settings
         self._discovery = discovery
         self._pipeline = pipeline
@@ -43,6 +44,7 @@ class SchedulerService:
         self._catalyst_poller = catalyst_poller
         self._outcomes = outcomes
         self._rescore = rescore
+        self._earnings_rescore = earnings_rescore
         self._scheduler: BackgroundScheduler | None = None
         self.last_discovery_at: datetime | None = None
         self.last_monitor_tick_at: datetime | None = None
@@ -83,7 +85,8 @@ class SchedulerService:
 
         # On a delayed feed a catalyst is scored before its move is visible;
         # this pass returns once the data arrives.
-        if self._rescore is not None and self._settings.rescore_enabled:
+        if ((self._rescore is not None or self._earnings_rescore is not None)
+                and self._settings.rescore_enabled):
             self._scheduler.add_job(
                 self.run_rescore,
                 IntervalTrigger(seconds=self._settings.rescore_interval_seconds),
@@ -148,17 +151,29 @@ class SchedulerService:
             return None
 
     def run_rescore(self, now: datetime | None = None):
-        """Revisit catalysts scored before their move was visible."""
-        if self._rescore is None:
-            return None
+        """Revisit scores made before the market's response was visible.
+
+        Both pipelines need this on a delayed feed. The earnings one matters
+        most: its releases land after the close, so without it the
+        unavailable-prices veto never lifts and nothing ever reaches 9+.
+        """
         now = now or utcnow()
         self.last_rescore_at = now
+        catalyst_result = earnings_result = None
         try:
             with db_session() as session:
-                return self._rescore.run(session, now)
+                if self._rescore is not None:
+                    catalyst_result = self._rescore.run(session, now)
         except Exception:
             logger.exception("catalyst re-score failed")
-            return None
+        try:
+            with db_session() as session:
+                if self._earnings_rescore is not None:
+                    earnings_result = self._earnings_rescore.run(session, now)
+        except Exception:
+            logger.exception("earnings re-score failed")
+        return catalyst_result if earnings_result is None else (
+            catalyst_result, earnings_result)
 
     def monitor_tick(self, now: datetime | None = None) -> int:
         """Check every event that is due. Returns how many were checked."""

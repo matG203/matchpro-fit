@@ -266,6 +266,7 @@ class EarningsPipeline:
         score_row.needs_verification = result.needs_verification
         score_row.score_review = result.score_review
         score_row.provisional = result.provisional
+        score_row.scoring_inputs = inputs.to_dict()
         session.flush()
 
         audit.log("pipeline", "score_calculated",

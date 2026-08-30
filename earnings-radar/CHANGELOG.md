@@ -4,6 +4,40 @@ All notable changes to Earnings Radar are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project
 uses semantic versioning.
 
+## [0.3.2] — 2026-08-30
+
+Fixes a defect that would have made the **earnings** pipeline silent on a
+delayed feed. 320 tests pass.
+
+### Fixed
+
+- **No earnings release could ever have alerted on Polygon Starter.**
+  `capture_reaction` ran once, at `minutes_after=0`, which on a 15-minute feed
+  is always inside the withhold window — so market confirmation was withheld,
+  the "unavailable live price feeds" veto applied, and nothing ever came back
+  to lift it. Every release would have been permanently capped at 8.9 against a
+  9.0 push threshold. This matters more than the catalyst case: US releases land
+  at 16:05 ET and the whole reaction happens after hours, so the delay always
+  covers the moment of scoring.
+
+### Added
+
+- `EarningsRescoreService`: re-measures the after-hours reaction once the feed
+  can show it, recomputes the score from the stored inputs (no second LLM call),
+  and updates the stored context. Runs in the same scheduler job as the catalyst
+  pass.
+- `scoring_inputs`, `rescored_at` and `score_before_rescore` on `scores`;
+  `ScoringInputs.to_dict`/`from_dict` for the earnings scorer.
+- `NotificationService.band()` and a `revision` argument to `notify_score`, so a
+  re-score that crosses a band can notify again while a drift inside one stays
+  silent.
+
+```
+AMC release on a 15-minute feed:
+  21:05 UK  scored blind        8.8   veto: unavailable live price feeds
+  21:20 UK  re-scored, +9% AH   9.3   no vetoes
+```
+
 ## [0.3.1] — 2026-08-30
 
 Makes the system correct on a **delayed price feed**, so it can run on Polygon's

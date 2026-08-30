@@ -459,3 +459,195 @@ def test_halt_still_beats_the_delay_logic():
     room = assess_reaction_room(abnormal=abnormal, analogue_expected_move_pct=20.0,
                                 halt_state=HaltState.NEWS_PENDING)
     assert room.unresolved is True
+
+
+# ── earnings: the release lands after the close ───────────────────────────────
+
+
+def test_an_amc_release_is_rescored_once_the_after_hours_print_arrives(db):
+    """The decisive case. A US release lands 16:05 ET = 21:05 UK and the whole
+    reaction happens after hours. On a 15-minute feed nothing is visible at
+    scoring time, so the release takes the unavailable-prices veto. Without a
+    re-score pass that veto is permanent and no report can ever reach 9+."""
+    from app.db.models import Company, EarningsEvent, MarketContext, Release, Score
+    from app.domain.enums import GuidanceStatus, ReactionPattern
+    from app.providers.base import Quote
+    from app.services.marketdata import MarketDataService
+    from app.services.notification import NotificationService
+    from app.services.rescore import EarningsRescoreService
+    from app.services.scoring import ScoringInputs as EarningsInputs
+    from app.services.scoring import compute_scores
+
+    release_at = NOW - timedelta(minutes=20)        # 15-min feed has caught up
+    conf = settings(min_notification_score=0.0, high_score_alert=9.0,
+                    min_confidence_for_notification=75.0)
+
+    # An excellent report, scored while the reaction was still invisible.
+    blind = EarningsInputs(
+        llm_earnings_quality=10.0, llm_guidance_score=10.0,
+        llm_business_kpi_score=10.0, llm_true_surprise_score=10.0,
+        llm_confidence=100.0, guidance_status=GuidanceStatus.RAISED,
+        organic_guidance_change=True, eps_surprise_pct=40.0,
+        revenue_surprise_pct=15.0, estimate_confidence="HIGH",
+        release_source_quality=1.0, kpi_completeness=1.0,
+        reaction_pattern=ReactionPattern.UNRESOLVED, market_data_unresolved=True)
+    first = compute_scores(blind)
+
+    with db.db_session() as session:
+        company = Company(ticker="ESTC", name="Elastic NV", cik="0000012346")
+        session.add(company); session.flush()
+        event = EarningsEvent(company_id=company.id, fiscal_year=2026, fiscal_quarter=2,
+                              state="SCORED")
+        session.add(event); session.flush()
+        release = Release(event_id=event.id, canonical_key="ESTC|FY2026|Q2",
+                          published_at_utc=release_at, document_type="8-K",
+                          verified=True)
+        session.add(release); session.flush()
+        session.add(MarketContext(event_id=event.id, prev_close=99.0,
+                                  pre_release_price=100.0, unresolved=True))
+        session.add(Score(release_id=release.id,
+                          scoring_model_version=first.scoring_model_version,
+                          earnings_quality=first.earnings_quality,
+                          market_confirmation=first.market_confirmation,
+                          entry_score=first.entry_score,
+                          final_trade_score=first.final_trade_score,
+                          component_breakdown=first.component_breakdown,
+                          vetoes_applied=first.vetoes_applied,
+                          analysis_confidence=first.analysis_confidence,
+                          scoring_inputs=blind.to_dict()))
+        session.flush()
+
+        assert first.final_trade_score <= 8.9, "the veto must cap the blind score"
+        assert "contradictory/unavailable live price feeds" in first.vetoes_applied
+
+        # The after-hours print is now visible: +9% on the release.
+        class Feed:
+            name = "feed"
+
+            def quote(self, ticker):
+                return Quote(ticker=ticker, price=109.0, prev_close=99.0)
+
+        notifications = NotificationService([], min_score=0.0, high_score_alert=9.0,
+                                            min_confidence=75.0)
+        service = EarningsRescoreService(
+            settings=conf,
+            market=MarketDataService([Feed()], conflict_threshold_pct=5.0,
+                                     data_delay_seconds=DELAY),
+            notifications=notifications)
+
+        result = service.run(session, NOW)
+        row = session.query(Score).one()
+        context = session.query(MarketContext).one()
+
+    assert result.rescored == 1
+    assert row.score_before_rescore == first.final_trade_score
+    assert row.final_trade_score > first.final_trade_score
+    assert row.final_trade_score >= 9.0, "9+ must become reachable once priced"
+    assert "contradictory/unavailable live price feeds" not in row.vetoes_applied
+    assert row.market_confirmation > 5.0
+    assert context.current_reaction_pct == pytest.approx(9.0)
+    assert row.rescored_at is not None
+
+
+def test_an_amc_release_still_inside_the_delay_window_waits(db):
+    from app.db.models import Company, EarningsEvent, MarketContext, Release, Score
+    from app.services.marketdata import MarketDataService
+    from app.services.notification import NotificationService
+    from app.services.rescore import EarningsRescoreService
+    from app.services.scoring import ScoringInputs as EarningsInputs
+
+    conf = settings()
+    blind = EarningsInputs(market_data_unresolved=True, llm_earnings_quality=9.0)
+
+    with db.db_session() as session:
+        company = Company(ticker="ESTC", name="Elastic NV")
+        session.add(company); session.flush()
+        event = EarningsEvent(company_id=company.id, fiscal_year=2026,
+                              fiscal_quarter=2, state="SCORED")
+        session.add(event); session.flush()
+        release = Release(event_id=event.id, canonical_key="ESTC|FY2026|Q2",
+                          published_at_utc=NOW - timedelta(minutes=4),
+                          document_type="8-K", verified=True)
+        session.add(release); session.flush()
+        session.add(MarketContext(event_id=event.id, prev_close=99.0,
+                                  pre_release_price=100.0, unresolved=True))
+        session.add(Score(release_id=release.id, scoring_model_version="1.0.0",
+                          earnings_quality=9.0, market_confirmation=5.0,
+                          entry_score=5.0, final_trade_score=8.3,
+                          scoring_inputs=blind.to_dict()))
+        session.flush()
+
+        service = EarningsRescoreService(
+            settings=conf,
+            market=MarketDataService([], conflict_threshold_pct=5.0,
+                                     data_delay_seconds=DELAY),
+            notifications=NotificationService([], min_score=0.0,
+                                              high_score_alert=9.0, min_confidence=75.0))
+        result = service.run(session, NOW)
+        row = session.query(Score).one()
+
+    assert result.rescored == 0
+    assert result.still_waiting == 1
+    assert row.rescored_at is None          # left for a later pass
+    assert row.final_trade_score == 8.3
+
+
+def test_a_release_already_measured_is_not_revisited(db):
+    from app.db.models import Company, EarningsEvent, MarketContext, Release, Score
+    from app.services.marketdata import MarketDataService
+    from app.services.notification import NotificationService
+    from app.services.rescore import EarningsRescoreService
+    from app.services.scoring import ScoringInputs as EarningsInputs
+
+    measured = EarningsInputs(reaction_pct=6.0, market_data_unresolved=False)
+
+    with db.db_session() as session:
+        company = Company(ticker="ESTC", name="Elastic NV")
+        session.add(company); session.flush()
+        event = EarningsEvent(company_id=company.id, fiscal_year=2026,
+                              fiscal_quarter=2, state="SCORED")
+        session.add(event); session.flush()
+        release = Release(event_id=event.id, canonical_key="ESTC|FY2026|Q2",
+                          published_at_utc=NOW - timedelta(minutes=30),
+                          document_type="8-K", verified=True)
+        session.add(release); session.flush()
+        session.add(MarketContext(event_id=event.id, prev_close=99.0,
+                                  pre_release_price=100.0))
+        session.add(Score(release_id=release.id, scoring_model_version="1.0.0",
+                          earnings_quality=9.0, market_confirmation=8.0,
+                          entry_score=7.0, final_trade_score=8.6,
+                          scoring_inputs=measured.to_dict()))
+        session.flush()
+
+        service = EarningsRescoreService(
+            settings=settings(),
+            market=MarketDataService([], conflict_threshold_pct=5.0,
+                                     data_delay_seconds=DELAY),
+            notifications=NotificationService([], min_score=0.0,
+                                              high_score_alert=9.0, min_confidence=75.0))
+        result = service.run(session, NOW)
+
+    assert result.considered == 0
+    assert result.rescored == 0
+
+
+def test_earnings_scoring_inputs_survive_a_round_trip():
+    from app.domain.enums import GuidanceStatus, ReactionPattern
+    from app.services.scoring import ScoringInputs as EarningsInputs
+
+    original = EarningsInputs(llm_earnings_quality=9.0,
+                              guidance_status=GuidanceStatus.RAISED,
+                              reaction_pattern=ReactionPattern.POST_EARNINGS_MOMENTUM,
+                              eps_surprise_pct=12.0, market_data_unresolved=True)
+    assert EarningsInputs.from_dict(original.to_dict()) == original
+
+
+def test_a_rescore_can_notify_again_only_when_it_crosses_a_band():
+    from app.services.notification import NotificationService
+
+    service = NotificationService([], min_score=7.0, high_score_alert=9.0,
+                                  min_confidence=75.0)
+    assert service.band(6.0) == "below"
+    assert service.band(8.3) == "normal"
+    assert service.band(9.2) == "high"
+    assert service.band(9.2, needs_verification=True) == "normal"
