@@ -131,7 +131,7 @@ def env_dir(tmp_path_factory):
     """A folder that looks correctly configured, so the provider checks can be
     tested without the .env check failing first."""
     path = tmp_path_factory.mktemp("configured")
-    (path / ".env").write_text("ANTHROPIC_API_KEY=sk-ant-abcd1234efgh5678\n")
+    (path / ".env").write_text("ANTHROPIC_API_KEY=sk-ant-abcd1234efgh5678\n", encoding="utf-8")
     return path
 
 
@@ -424,7 +424,7 @@ def test_the_polygon_base_url_is_configurable_for_the_massive_rebrand():
 def test_a_present_env_file_reports_which_keys_were_read(tmp_path):
     from app.preflight import _check_config
 
-    (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=sk-ant-abcd1234efgh5678\n")
+    (tmp_path / ".env").write_text("ANTHROPIC_API_KEY=sk-ant-abcd1234efgh5678\n", encoding="utf-8")
     report = PreflightReport()
     _check_config(report, settings(anthropic_api_key="sk-ant-abcd1234efgh5678"),
                   cwd=tmp_path)
@@ -439,7 +439,7 @@ def test_the_key_is_never_printed_in_full(tmp_path):
     from app.preflight import _check_config
 
     secret = "sk-ant-SUPERSECRETVALUE123456"
-    (tmp_path / ".env").write_text(f"ANTHROPIC_API_KEY={secret}\n")
+    (tmp_path / ".env").write_text(f"ANTHROPIC_API_KEY={secret}\n", encoding="utf-8")
     report = PreflightReport()
     _check_config(report, settings(anthropic_api_key=secret), cwd=tmp_path)
 
@@ -452,7 +452,7 @@ def test_the_notepad_dot_txt_trap_is_named_explicitly(tmp_path):
     like every key being wrong."""
     from app.preflight import _check_config
 
-    (tmp_path / ".env.txt").write_text("ANTHROPIC_API_KEY=x\n")
+    (tmp_path / ".env.txt").write_text("ANTHROPIC_API_KEY=x\n", encoding="utf-8")
     report = PreflightReport()
     _check_config(report, settings(anthropic_api_key="", polygon_api_key="",
                                    fmp_api_key="", ntfy_topic=""), cwd=tmp_path)
@@ -498,7 +498,7 @@ def test_an_env_file_that_parsed_to_nothing_is_a_failure(tmp_path):
     """A file full of KEY = "value" reads as empty and needs its own message."""
     from app.preflight import _check_config
 
-    (tmp_path / ".env").write_text('ANTHROPIC_API_KEY = "x"\n')
+    (tmp_path / ".env").write_text('ANTHROPIC_API_KEY = "x"\n', encoding="utf-8")
     report = PreflightReport()
     _check_config(report, settings(anthropic_api_key="", polygon_api_key="",
                                    fmp_api_key="", ntfy_topic=""), cwd=tmp_path)

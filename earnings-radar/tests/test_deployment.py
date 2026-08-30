@@ -69,7 +69,7 @@ def test_postgres_on_a_hosted_container_is_fine(monkeypatch):
 
 
 def test_railway_config_is_valid_json_and_points_at_real_things():
-    config = json.loads((ROOT / "railway.json").read_text())
+    config = json.loads((ROOT / "railway.json").read_text(encoding="utf-8"))
     deploy = config["deploy"]
 
     assert (ROOT / config["build"]["dockerfilePath"]).exists()
@@ -85,7 +85,7 @@ def test_the_healthcheck_path_actually_serves(db):
 
     from app.main import create_app
 
-    config = json.loads((ROOT / "railway.json").read_text())
+    config = json.loads((ROOT / "railway.json").read_text(encoding="utf-8"))
     path = config["deploy"]["healthcheckPath"]
 
     with TestClient(create_app(start_scheduler=False)) as client:
@@ -95,7 +95,7 @@ def test_the_healthcheck_path_actually_serves(db):
 def test_the_dockerfile_does_not_hardcode_the_port_in_its_start_command():
     """Binding 8000 on a host that assigns $PORT yields a container that starts,
     logs nothing wrong, and is never routed to."""
-    dockerfile = (ROOT / "Dockerfile").read_text()
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
     cmd = next(line for line in dockerfile.splitlines() if line.startswith("CMD"))
 
     assert "--port" not in cmd
@@ -106,7 +106,7 @@ def test_the_start_command_railway_runs_is_importable():
     """railway.json names a module; a typo there fails only on deploy."""
     import importlib
 
-    config = json.loads((ROOT / "railway.json").read_text())
+    config = json.loads((ROOT / "railway.json").read_text(encoding="utf-8"))
     command = config["deploy"]["startCommand"].split()
 
     assert command[:2] == ["python", "-m"]
@@ -115,7 +115,7 @@ def test_the_start_command_railway_runs_is_importable():
 
 def test_env_example_documents_every_wire_setting():
     """A setting nobody can find is a setting nobody sets."""
-    example = (ROOT / ".env.example").read_text()
+    example = (ROOT / ".env.example").read_text(encoding="utf-8")
     for name in ("WIRE_FEEDS_ENABLED", "WIRE_USE_DEFAULT_FEEDS", "WIRE_FEED_URLS",
                  "WIRE_MAX_BODY_FETCHES"):
         assert name in example, f"{name} is not in .env.example"
@@ -127,21 +127,47 @@ def test_env_example_documents_every_wire_setting():
 _REAL_ANTHROPIC_KEY = re.compile(r"sk-ant-[A-Za-z0-9_-]{12,}")
 
 
+_SCANNED_SUFFIXES = {".md", ".json", ".yml", ".yaml", ".toml", ".bat", ".example"}
+
+
+def _files_to_scan():
+    """Committed text files at the project root.
+
+    `.env` and friends are deliberately excluded: they are gitignored, they are
+    not committed, and they are the one place a real key is *supposed* to live.
+    Reading them here would make a passing test depend on a developer's private
+    file, and a failing one print a warning about a key that is exactly where it
+    belongs.
+    """
+    for path in sorted(ROOT.glob("*")):
+        if path.is_dir() or path.name.startswith(".env"):
+            continue
+        if path.suffix in _SCANNED_SUFFIXES or path.name == "Dockerfile":
+            yield path
+
+
 def test_no_committed_file_contains_a_real_key():
     """The standing rule, enforced rather than remembered."""
-    for path in ROOT.glob("*"):
-        if path.is_dir() or path.suffix not in {".md", ".json", ".yml", ".yaml",
-                                                ".toml", ".bat", ".example"} \
-                and path.name != "Dockerfile":
-            continue
-        found = _REAL_ANTHROPIC_KEY.search(path.read_text())
-        assert found is None, f"{path.name} contains what looks like a real key"
+    scanned = list(_files_to_scan())
+    # If the glob ever stops matching, this test would pass by scanning nothing.
+    assert {"README.md", "DEPLOY.md", "railway.json", "Dockerfile"} <= {
+        p.name for p in scanned}
+
+    for path in scanned:
+        # errors="replace" rather than strict: the job is to find keys, and a
+        # file this cannot decode should not be able to skip the scan. Reading
+        # without an explicit encoding used the platform default, which is
+        # cp1252 on Windows — so this passed on Linux and crashed on the one
+        # machine that matters.
+        text = path.read_text(encoding="utf-8", errors="replace")
+        assert _REAL_ANTHROPIC_KEY.search(text) is None, (
+            f"{path.name} contains what looks like a real key")
 
 
 def test_the_example_env_file_ships_with_every_value_blank():
     """`.env.example` is copied to `.env`; a value left in it would be a key
     someone published to their own repository by accident."""
-    for line in (ROOT / ".env.example").read_text().splitlines():
+    for line in (ROOT / ".env.example").read_text(encoding="utf-8").splitlines():
         if line.strip().startswith("#"):
             continue
         for key in ("ANTHROPIC_API_KEY", "POLYGON_API_KEY", "FMP_API_KEY",
