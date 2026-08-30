@@ -257,6 +257,15 @@ def run_catalyst_poll(container=Depends(get_container)) -> dict:
     }
 
 
+@router.get("/preflight")
+def preflight(container=Depends(get_container)) -> dict:
+    """Prove every provider actually works, and that the configured feed delay
+    matches the plan. Makes one real call per capability."""
+    from app.preflight import run_preflight
+
+    return run_preflight(container.settings).as_dict()
+
+
 @router.get("/catalyst/delay-impact")
 def catalyst_delay_impact(container=Depends(get_container)) -> dict:
     """Whether the delayed price feed is actually costing you anything.

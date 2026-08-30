@@ -43,6 +43,7 @@ from app.providers.base import (
     TTLCache,
 )
 
+# Default endpoint; overridable via POLYGON_BASE_URL (see config).
 BASE = "https://api.polygon.io"
 
 # Polygon timestamps: aggregates are epoch milliseconds, trades/quotes in the
@@ -67,8 +68,10 @@ class PolygonProvider(PriceProvider, BarProvider, MarketStructureProvider):
     name = "polygon"
 
     def __init__(self, client: httpx.Client | None = None, api_key: str | None = None,
-                 *, rate_per_second: float = 8.0):
-        self._api_key = api_key if api_key is not None else get_settings().polygon_api_key
+                 *, rate_per_second: float = 8.0, base_url: str | None = None):
+        settings = get_settings()
+        self._api_key = api_key if api_key is not None else settings.polygon_api_key
+        self._base = (base_url or settings.polygon_base_url or BASE).rstrip("/")
         self._client = client or httpx.Client(timeout=15.0)
         self._limiter = RateLimiter(rate_per_second=rate_per_second, burst=10)
         self._reference_cache = TTLCache(ttl_seconds=86400.0, max_items=4096)
@@ -85,7 +88,7 @@ class PolygonProvider(PriceProvider, BarProvider, MarketStructureProvider):
         self._limiter.acquire()
         params["apiKey"] = self._api_key
         try:
-            resp = self._client.get(f"{BASE}{path}", params=params)
+            resp = self._client.get(f"{self._base}{path}", params=params)
             if resp.status_code == 429:
                 raise ProviderError("polygon rate limited")
             if resp.status_code == 403:

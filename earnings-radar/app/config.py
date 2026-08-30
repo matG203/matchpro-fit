@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     fmp_api_key: str = ""
     fmp_daily_quota: int = 240  # free tier is 250/day; keep headroom
     polygon_api_key: str = ""
+    # Polygon rebranded to Massive in July 2026; api.polygon.io still serves the
+    # same API with the same keys. Configurable so a future endpoint move is a
+    # settings change rather than a code change.
+    polygon_base_url: str = "https://api.polygon.io"
     sec_user_agent: str = "Earnings Radar (contact@example.com)"
 
     # Notifications

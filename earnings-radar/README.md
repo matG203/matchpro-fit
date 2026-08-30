@@ -65,7 +65,7 @@ tells you exactly which providers are live.
 Run the tests:
 
 ```bash
-.venv/bin/python -m pytest -q          # 320 tests
+.venv/bin/python -m pytest -q          # 339 tests
 .venv/bin/ruff check app tests
 ```
 
@@ -93,6 +93,31 @@ Minimum useful setup:
 | `ANTHROPIC_API_KEY` | The qualitative analysis layer (`claude-opus-5`). Without it you get provisional deterministic scores only. | ~$0.25–0.40 per report |
 
 Optional: `PUSHOVER_USER_KEY` + `PUSHOVER_APP_TOKEN` for a second push channel.
+
+### Check it works before you need it
+
+```bash
+.venv/bin/python -m app.preflight
+```
+
+Every provider in this system fails *quietly* by design — a missing entitlement
+lowers a score and writes an audit row rather than crashing a release evening.
+That is right at 21:05 and useless on setup day, because a wrong key looks
+exactly like a quiet market. Preflight makes one real call per capability and
+says plainly what worked.
+
+It also measures your **observed** feed delay from a live timestamp and compares
+it to `MARKET_DATA_DELAY_SECONDS`. Getting that wrong is silent and serious in
+one direction:
+
+```
+[ FAIL ] Feed delay
+         prices are 15 min old but the system expects 0 min
+         → Set MARKET_DATA_DELAY_SECONDS=900 — otherwise a move you cannot
+           see yet is scored as no move
+```
+
+Also at `GET /api/preflight`. Exit code is 0 when nothing is blocking.
 
 ### Running on a delayed price feed
 
@@ -233,6 +258,7 @@ extraction, and a mismatch lowers confidence.
 | `POST /api/catalyst/outcomes/capture` | Backfill outcomes for recent catalysts now |
 | `POST /api/catalyst/rescore` | Re-score catalysts whose delayed data has arrived |
 | `/api/catalyst/delay-impact` | Is the delayed feed costing you anything? |
+| `/api/preflight` | Does every provider actually work? |
 
 ---
 
@@ -276,7 +302,7 @@ app/
   catalyst/          Catalyst Sentinel: entities, dedup, novelty, classify,
                      materiality, negatives, amplification, reaction, scoring,
                      investigator, alerts, pipeline, SEC routing
-tests/               320 tests incl. earnings regression cases, the catalyst
+tests/               339 tests incl. earnings regression cases, the catalyst
                      false-positive scenarios, the live market-data wiring and
                      the delayed-feed traps
 ```

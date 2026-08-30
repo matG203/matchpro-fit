@@ -4,6 +4,24 @@ All notable changes to Earnings Radar are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project
 uses semantic versioning.
 
+## [0.3.3] — 2026-08-30
+
+### Added
+
+- **`python -m app.preflight`** (and `GET /api/preflight`): one real call per
+  capability, so a wrong key is caught on setup day rather than on an earnings
+  evening. Every provider here fails quietly by design, which means a bad key
+  looks exactly like a quiet market.
+- Preflight measures the **observed** feed delay from a live timestamp and
+  compares it to `MARKET_DATA_DELAY_SECONDS`. Configuring 0 on a delayed plan is
+  reported as a failure — it is the direction that inverts the signal, scoring a
+  move you cannot see yet as no move. The opposite mistake is a warning: merely
+  wasteful. The check is skipped when the market is closed, where a stale print
+  proves nothing.
+- `POLYGON_BASE_URL` — Polygon rebranded to Massive in July 2026 and
+  `api.polygon.io` still serves the same API with the same keys, but a future
+  endpoint move is now a settings change rather than a code change.
+
 ## [0.3.2] — 2026-08-30
 
 Fixes a defect that would have made the **earnings** pipeline silent on a
