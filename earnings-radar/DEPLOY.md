@@ -30,6 +30,32 @@ You need three things:
 
 ---
 
+## Step 0 — Get the new code onto your machine
+
+The latest code lands on the `claude/stock-locator-repo-a7dg0y` branch of the
+`matchpro-fit` repository, in an `earnings-radar` subfolder. Same transfer you
+have done before:
+
+```powershell
+cd C:\matchpro-fit
+git fetch origin claude/stock-locator-repo-a7dg0y
+git checkout claude/stock-locator-repo-a7dg0y
+git pull origin claude/stock-locator-repo-a7dg0y
+
+robocopy C:\matchpro-fit\earnings-radar C:\earnings-radar /MIR /XD .venv .git __pycache__ .pytest_cache .ruff_cache /XF *.db
+```
+
+`/MIR` mirrors the folder, and `/XD .venv .git` keeps your virtual environment
+and your local git history. `/XF *.db` keeps your existing database.
+
+Check it arrived — this file should exist:
+
+```powershell
+dir C:\earnings-radar\DEPLOY.md
+```
+
+---
+
 ## Step 1 — Push the code to GitHub
 
 In PowerShell, from your project folder:
@@ -50,6 +76,12 @@ git push -u origin main
 ```
 
 Make the repository **private**. It contains your trading logic.
+
+> **The Dockerfile must be at the top level of whatever repo you point Railway
+> at.** In `C:\earnings-radar` it already is. If you ever point Railway at the
+> `matchpro-fit` repo instead, the code sits in a subfolder, and you must set
+> **Settings → Root Directory** to `earnings-radar` or the build will find
+> nothing to build.
 
 ---
 
@@ -159,6 +191,14 @@ get every alert twice.
 **Only ever run one copy.** Railway's `numReplicas` is set to 1 in
 `railway.json` for this reason: each copy runs its own scheduler, so two copies
 means two of every alert. Do not raise it.
+
+**Railway starts with an empty database.** Your laptop's SQLite file does not
+come with it, and is not worth migrating: the company list rebuilds itself from
+the next few discovery runs (05:00, 09:00, 13:00, 18:00, 20:00 London), and the
+catalyst universe grows from there. What you lose is the outcome history behind
+`/api/catalyst/performance` — which needs dozens of events before it says
+anything anyway, so starting that clock now costs you very little. Keep the
+laptop copy if you want it; just do not run both against the same ntfy topic.
 
 **Deploys are safe.** Pushing to GitHub redeploys automatically. The in-memory
 "already seen" state resets, so the poller re-reads the last hour — and the
