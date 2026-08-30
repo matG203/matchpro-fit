@@ -32,26 +32,66 @@ You need three things:
 
 ## Step 0 — Get the new code onto your machine
 
-The latest code lands on the `claude/stock-locator-repo-a7dg0y` branch of the
-`matchpro-fit` repository, in an `earnings-radar` subfolder. Same transfer you
-have done before:
+New code lands on the `claude/stock-locator-repo-a7dg0y` branch of the
+`matchpro-fit` repository, in an `earnings-radar` subfolder, and is copied
+across from there.
+
+> Paths below assume the project lives at `C:\Users\matra\earnings-radar`.
+> Run `pwd` in your project folder if you are not sure.
+
+**Back up your `.env` first.** It is not in the repository (that is the point of
+it), so a mirroring copy would delete it:
 
 ```powershell
-cd C:\matchpro-fit
-git fetch origin claude/stock-locator-repo-a7dg0y
-git checkout claude/stock-locator-repo-a7dg0y
-git pull origin claude/stock-locator-repo-a7dg0y
-
-robocopy C:\matchpro-fit\earnings-radar C:\earnings-radar /MIR /XD .venv .git __pycache__ .pytest_cache .ruff_cache /XF *.db
+copy C:\Users\matra\earnings-radar\.env $env:USERPROFILE\Desktop\env-backup.txt
 ```
 
-`/MIR` mirrors the folder, and `/XD .venv .git` keeps your virtual environment
-and your local git history. `/XF *.db` keeps your existing database.
-
-Check it arrived — this file should exist:
+Get a fresh copy of the update branch. This clones into a throwaway folder —
+it is not your project, and you can delete it afterwards:
 
 ```powershell
-dir C:\earnings-radar\DEPLOY.md
+cd $env:USERPROFILE
+if (Test-Path .\radar-update) { Remove-Item .\radar-update -Recurse -Force }
+git clone --branch claude/stock-locator-repo-a7dg0y --depth 1 https://github.com/matG203/matchpro-fit.git radar-update
+```
+
+Confirm the source really exists before copying anything — the destination is
+mirrored, so pointing at a folder that is not there is worth ruling out:
+
+```powershell
+dir $env:USERPROFILE\radar-update\earnings-radar\DEPLOY.md
+```
+
+Now copy it across:
+
+```powershell
+robocopy $env:USERPROFILE\radar-update\earnings-radar C:\Users\matra\earnings-radar /MIR `
+  /XD .venv .git __pycache__ .pytest_cache .ruff_cache `
+  /XF .env *.db *.log
+```
+
+`/MIR` mirrors the folder so files I have deleted go away too. `/XD` keeps your
+virtual environment and your local git history; **`/XF .env`** keeps your keys,
+and `*.db` keeps your database. Excluded items are left alone entirely, so
+mirroring does not remove them.
+
+Check your keys survived and the new code arrived:
+
+```powershell
+dir C:\Users\matra\earnings-radar\.env
+dir C:\Users\matra\earnings-radar\DEPLOY.md
+```
+
+If `.env` is missing for any reason, copy the backup back:
+
+```powershell
+copy $env:USERPROFILE\Desktop\env-backup.txt C:\Users\matra\earnings-radar\.env
+```
+
+Then tidy up the throwaway clone:
+
+```powershell
+Remove-Item $env:USERPROFILE\radar-update -Recurse -Force
 ```
 
 ---
@@ -61,7 +101,7 @@ dir C:\earnings-radar\DEPLOY.md
 In PowerShell, from your project folder:
 
 ```powershell
-cd C:\earnings-radar
+cd C:\Users\matra\earnings-radar
 git add -A
 git commit -m "Ready for deployment"
 git push
@@ -78,7 +118,7 @@ git push -u origin main
 Make the repository **private**. It contains your trading logic.
 
 > **The Dockerfile must be at the top level of whatever repo you point Railway
-> at.** In `C:\earnings-radar` it already is. If you ever point Railway at the
+> at.** In `C:\Users\matra\earnings-radar` it already is. If you ever point Railway at the
 > `matchpro-fit` repo instead, the code sits in a subfolder, and you must set
 > **Settings → Root Directory** to `earnings-radar` or the build will find
 > nothing to build.
