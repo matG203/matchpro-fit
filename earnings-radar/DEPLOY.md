@@ -258,9 +258,22 @@ Anthropic usage depends on how many catalysts clear the screen for deep
 analysis — typically a handful a day. Set a spend limit in the Anthropic
 console if you want a hard ceiling.
 
-**If a wire feed URL stops working**, `/news` shows it red and `/api/preflight`
-names it. The other wires keep working. You can replace it without a code
-change by setting `WIRE_FEED_URLS` to the new address.
+**If a wire feed stops working**, `/news` shows it red and `/api/preflight`
+names it. The other wires keep working. Watch for the quiet version too: a feed
+that answers and parses but returns *no releases at all*. Preflight flags that
+per wire, because a wire contributing nothing otherwise looks exactly like a
+wire that is fine.
+
+To find a replacement URL, test candidates before committing to one:
+
+```powershell
+.venv\Scripts\python.exe -m app.probe_feed https://some-wire/feed.rss
+```
+
+It reports the item count, the newest timestamp, and how many releases carry an
+exchange-qualified ticker — which is what entity resolution needs. Run it with
+no arguments to test all three built-in wires. Once a URL passes, put it in
+`WIRE_FEED_URLS` (as `url|Source Name`); no code change needed.
 
 ---
 

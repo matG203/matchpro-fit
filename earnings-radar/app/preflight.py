@@ -33,6 +33,10 @@ logger = logging.getLogger("earnings_radar.preflight")
 # account, not the ticker.
 PROBE_TICKER = "AAPL"
 
+# Release pages fetched to measure the real entity-resolution rate. Enough to
+# be indicative, few enough to stay polite to a free feed.
+_BODY_SAMPLE = 8
+
 OK, FAIL, WARN, SKIP = "ok", "fail", "warn", "skip"
 
 
@@ -398,6 +402,20 @@ def _check_wires(report: PreflightReport, settings: Settings, wires,
                    "This wire's feed URL may have changed. Coverage continues "
                    "on the other wires; fix or replace it via WIRE_FEED_URLS")
 
+    # A feed that answers, parses, and yields nothing. This is the worst of the
+    # three outcomes because it is the only one that looks like success: no
+    # error, no exception, just a wire that has quietly stopped contributing.
+    # It has to be judged per feed — summing across wires lets a live one hide
+    # a dead one, which is exactly what a total-only check did.
+    for health in [h for h in live if h.items_seen == 0]:
+        report.add(f"Newswire — {health.source}", WARN,
+                   "reachable and parsed, but returned no releases at all over "
+                   "24 hours — this wire publishes hundreds a day, so it is "
+                   "contributing nothing",
+                   "The feed URL is almost certainly wrong or retired. Find a "
+                   "working one with: python -m app.probe_feed <url> — then set "
+                   "it in WIRE_FEED_URLS")
+
     if not live:
         return
 
@@ -413,27 +431,73 @@ def _check_wires(report: PreflightReport, settings: Settings, wires,
     age = f", newest {(now - newest).total_seconds() / 60:.0f} min old" if newest else ""
     report.add("Newswires — free feeds", OK, f"{total} releases in 24h ({detail}){age}")
 
-    # Parsing the feed is not the same as being able to use it. Entity
-    # resolution needs an exchange-qualified ticker, and if the wires stopped
-    # including them the whole news stream would resolve to nothing while
-    # every other check stayed green.
+    # Parsing a feed is not the same as being able to use it. Entity resolution
+    # needs an exchange-qualified ticker, and if the wires stopped including
+    # them the whole news stream would resolve to nothing while every other
+    # check stayed green.
+    #
+    # The RSS summary alone resolves only a minority of releases, because the
+    # "(NASDAQ: ABC)" tag sits in the release body. A live sweep fetches those
+    # bodies; so does this check, for a sample. Reporting the summary-only rate
+    # and *asserting* the body fetch fixes it would be a guess about the single
+    # number that decides whether this system ever sees a catalyst.
     from app.catalyst.entities import resolve_entity
 
-    checked = articles[:60]
+    checked = articles[:40]
     if not checked:
         return
-    tagged = sum(
-        1 for a in checked
-        if resolve_entity(headline=a.headline, body=a.body,
-                          known_companies={}).confidence >= settings.min_entity_confidence)
-    pct = 100.0 * tagged / len(checked)
-    status = OK if pct >= 20 else WARN
+
+    def resolves(headline: str, body: str) -> bool:
+        return (resolve_entity(headline=headline, body=body, known_companies={})
+                .confidence >= settings.min_entity_confidence)
+
+    from_summary = [a for a in checked if resolves(a.headline, a.body)]
+    unresolved = [a for a in checked if a not in from_summary]
+
+    # Fetch a bounded sample of the ones the summary could not place, and see
+    # how many the full text rescues.
+    sample = unresolved[:_BODY_SAMPLE]
+    rescued = 0
+    fetch_failures = 0
+    fetch_body = getattr(wires, "_fetch_body", None)
+    for article in sample:
+        body = fetch_body(article.source_url) if fetch_body else None
+        if body is None:
+            fetch_failures += 1
+            continue
+        if resolves(article.headline, body):
+            rescued += 1
+
+    summary_pct = 100.0 * len(from_summary) / len(checked)
+    if not sample:
+        report.add("Newswires — ticker tags", OK,
+                   f"{len(from_summary)}/{len(checked)} releases ({summary_pct:.0f}%) "
+                   f"resolve to a ticker from the RSS summary alone")
+        return
+
+    fetched = len(sample) - fetch_failures
+    if fetched == 0:
+        report.add("Newswires — ticker tags", WARN,
+                   f"{len(from_summary)}/{len(checked)} ({summary_pct:.0f}%) resolve "
+                   f"from the summary; could not fetch any release page to test the rest",
+                   "The wires serve their feeds but not their article pages to this "
+                   "machine. Detection will run on headlines only, which resolves far "
+                   "fewer companies")
+        return
+
+    rescue_pct = 100.0 * rescued / fetched
+    # Projected end-to-end rate: summary hits, plus the same rescue rate applied
+    # to everything the summary missed.
+    projected = (len(from_summary) + (len(unresolved) * rescued / fetched)) / len(checked)
+    status = OK if projected >= 0.35 else WARN
     report.add("Newswires — ticker tags", status,
-               f"{tagged}/{len(checked)} releases ({pct:.0f}%) resolve to a ticker "
-               f"from the RSS summary alone",
+               f"{len(from_summary)}/{len(checked)} ({summary_pct:.0f}%) resolve from "
+               f"the summary; fetching the release page rescued {rescued}/{fetched} "
+               f"more ({rescue_pct:.0f}%) → about {projected:.0%} of releases end up "
+               f"attributable to a company",
                "" if status == OK else
-               "Low, but not necessarily broken: the exchange tag usually sits in "
-               "the release body, which a live sweep fetches and this check does not")
+               "Most releases cannot be tied to a ticker even with the full text. "
+               "Detection will still work, on fewer stories than it should")
 
 
 def _check_llm(report: PreflightReport, settings: Settings) -> None:

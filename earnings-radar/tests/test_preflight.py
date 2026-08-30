@@ -98,9 +98,12 @@ class FakeWires:
     outbound requests to three press-release sites on every run.
     """
 
-    def __init__(self, articles=None, error=None, health=None):
+    def __init__(self, articles=None, error=None, health=None, bodies=None):
         from app.providers.wires import WireFeedHealth
         self.error = error
+        # `bodies` maps a release URL to its page text. None means every fetch
+        # fails; {} means pages are served but carry no ticker either.
+        self._bodies = bodies
         self._articles = articles if articles is not None else [
             _wire_article("Kestrel Therapeutics Announces FDA Approval",
                           "Kestrel Therapeutics Inc. (NASDAQ: KTRX) announced."),
@@ -119,11 +122,18 @@ class FakeWires:
     def health(self):
         return list(self._health)
 
+    def _fetch_body(self, url):
+        """Mirrors the real provider: None when the page cannot be fetched."""
+        if self._bodies is None:
+            return None
+        return self._bodies.get(url, "Page text with no ticker in it.")
+
 
 def _wire_article(headline, body):
     from app.providers.news import NewsArticle
     return NewsArticle(provider="wire_rss", article_id=headline, headline=headline,
-                       body=body, published_at_utc=NOW - timedelta(minutes=6))
+                       body=body, source_url=f"https://wire.test/{abs(hash(headline))}",
+                       published_at_utc=NOW - timedelta(minutes=6))
 
 
 @pytest.fixture(scope="module")
@@ -321,6 +331,36 @@ def test_a_reachable_but_empty_firehose_blocks():
     assert report.ready is False
 
 
+def test_a_live_wire_returning_nothing_is_flagged_on_its_own():
+    """The failure a real run surfaced.
+
+    Business Wire answered, parsed, and returned zero releases in 24 hours
+    while the other two returned 20 each. The check summed across wires, saw
+    40, and reported OK — so a wire contributing nothing looked exactly like a
+    wire that was working. Emptiness has to be judged per feed.
+    """
+    from app.providers.wires import WireFeedHealth
+
+    def health(source, seen):
+        return WireFeedHealth(source=source, url=f"https://{source}.test/f", ok=True,
+                              items_seen=seen, items_new=1,
+                              last_attempt_at=NOW - timedelta(seconds=20),
+                              newest_item_at=NOW - timedelta(minutes=5) if seen else None)
+
+    report = run(wires=FakeWires(health=[
+        health("GlobeNewswire", 20), health("PR Newswire", 20),
+        health("Business Wire", 0),
+    ]))
+
+    entry = check(report, "Newswire — Business Wire")
+    assert entry.status == WARN
+    assert "no releases at all" in entry.detail
+    assert "probe_feed" in entry.fix
+    # The other two still work, so the run is not blocked.
+    assert status_of(report, "Newswires — free feeds") == OK
+    assert report.ready is True
+
+
 def test_one_dead_wire_is_reported_without_blocking_the_run():
     from app.providers.wires import WireFeedHealth
 
@@ -339,15 +379,53 @@ def test_one_dead_wire_is_reported_without_blocking_the_run():
 
 
 def test_releases_without_ticker_tags_warn_rather_than_pass_silently():
-    report = run(wires=FakeWires(articles=[
-        _wire_article("Something happened at a company", "No ticker anywhere."),
-        _wire_article("Another vague headline", "Still no ticker."),
-    ]))
+    """Nothing resolves, and fetching the pages does not rescue any."""
+    report = run(wires=FakeWires(
+        articles=[_wire_article("Something happened at a company", "No ticker."),
+                  _wire_article("Another vague headline", "Still no ticker.")],
+        bodies={}))                       # every page fetch returns untagged text
     entry = check(report, "Newswires — ticker tags")
 
     assert entry.status == WARN
     assert "0/2" in entry.detail
     assert report.ready is True
+
+
+def test_the_real_resolution_rate_is_measured_not_assumed():
+    """The number that decides whether this system ever sees a catalyst.
+
+    A live run showed only 12% of releases resolving from the RSS summary. The
+    check said "the body probably has the tag" — a guess about the one figure
+    that matters. It now fetches a sample of release pages and reports what
+    actually happens.
+    """
+    vague = [_wire_article(f"Vague headline {i}", "No ticker in the summary.")
+             for i in range(8)]
+    tagged = _wire_article("Kestrel Announces Approval",
+                           "Kestrel Therapeutics Inc. (NASDAQ: KTRX) announced.")
+    # The release pages do carry the exchange tag, as real ones do.
+    bodies = {a.source_url: f"{a.headline}. Acme Corp. (NASDAQ: ACME) said today."
+              for a in vague}
+
+    report = run(wires=FakeWires(articles=[tagged, *vague], bodies=bodies))
+    entry = check(report, "Newswires — ticker tags")
+
+    assert entry.status == OK
+    assert "1/9" in entry.detail                 # summary-only rate
+    assert "rescued 8/8" in entry.detail         # what the page fetch recovered
+    assert "100%" in entry.detail                # projected end-to-end
+    assert report.ready is True
+
+
+def test_unfetchable_release_pages_are_reported_rather_than_assumed_fine():
+    report = run(wires=FakeWires(
+        articles=[_wire_article(f"Vague {i}", "No ticker.") for i in range(4)],
+        bodies=None))                     # every fetch fails
+    entry = check(report, "Newswires — ticker tags")
+
+    assert entry.status == WARN
+    assert "could not fetch any release page" in entry.detail
+    assert "headlines only" in entry.fix
 
 
 def test_disabling_the_wires_is_a_skip_not_a_failure():
