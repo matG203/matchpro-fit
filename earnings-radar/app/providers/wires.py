@@ -98,15 +98,16 @@ class WireFeed:
 # will ever resolve. `python -m app.probe_feed --candidates` measures the
 # alternatives from a machine that can reach them; CANDIDATE_FEEDS below is
 # what it tests.
+# Chosen by measurement, not by assumption — see the probe results in
+# CHANGELOG 0.3.7. Business Wire is deliberately absent: none of its published
+# addresses work. The tokenised feed answers and returns nothing, and the
+# portal URLs are HTML pages that time out rather than feeds. Two working wires
+# beat three where one is silently contributing zero.
 DEFAULT_WIRE_FEEDS: list[WireFeed] = [
     WireFeed(
         url=("https://www.globenewswire.com/RssFeed/country/United%20States/"
              "feedTitle/GlobeNewswire%20-%20News%20from%20United%20States"),
         source="GlobeNewswire",
-        tier=SourceTier.PRIMARY),
-    WireFeed(
-        url="https://www.businesswire.com/portal/site/home/news/",
-        source="Business Wire",
         tier=SourceTier.PRIMARY),
     WireFeed(
         url="https://www.prnewswire.com/rss/news-releases-list.rss",
@@ -129,6 +130,9 @@ CANDIDATE_FEEDS: dict[str, list[str]] = {
         ("https://www.globenewswire.com/RssFeed/language/en/feedTitle/"
          "GlobeNewswire%20-%20News%20in%20English"),
     ],
+    # None of these worked when probed: the tokenised feed answers and returns
+    # nothing, and both portal URLs are HTML pages that time out. Kept so the
+    # probe re-tests them — a wire this large may well publish a feed again.
     "Business Wire": [
         "https://www.businesswire.com/portal/site/home/news/",
         "https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeEF9YWQ==",
@@ -136,10 +140,18 @@ CANDIDATE_FEEDS: dict[str, list[str]] = {
     ],
     "PR Newswire": [
         "https://www.prnewswire.com/rss/news-releases-list.rss",
-        "https://www.prnewswire.com/apac/rss/news-releases-list.rss",
+        # Duplicate of the above — same items, same timestamps. Kept only so
+        # the probe shows it is not a separate source of coverage.
+        "https://www.prnewswire.com/rss/all-news-releases-from-PR-newswire-news.rss",
+        # Scored the highest ticker rate (40%) and is the *worst* of the set:
+        # the matches are securities-litigation ads, which name a ticker
+        # perfectly and are not catalysts. A reminder that the ticker rate is a
+        # necessary condition, never a sufficient one.
         ("https://www.prnewswire.com/rss/financial-services-latest-news/"
          "financial-services-latest-news-list.rss"),
-        "https://www.prnewswire.com/rss/all-news-releases-from-PR-newswire-news.rss",
+        # Asia-Pacific: 0% resolvable, as expected — those issuers are not
+        # US-listed.
+        "https://www.prnewswire.com/apac/rss/news-releases-list.rss",
     ],
 }
 

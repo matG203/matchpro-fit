@@ -4,6 +4,82 @@ All notable changes to Earnings Radar are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project
 uses semantic versioning.
 
+## [0.3.7] — 2026-08-30
+
+Everything here came from probing the wires on a machine that can actually
+reach them. None of it was visible from the build environment, and most of it
+contradicts something I had asserted.
+
+### Fixed
+
+- **Classifier recall on real wire headlines was 60%.** The patterns were
+  drafted from imagined phrasings, and the wires do not write that way:
+
+  | Headline | Was | Now |
+  |---|---|---|
+  | "Cash Tender **Offers**" | unknown | tender_offer |
+  | "Receives **FDA Clearance**" | unknown | regulatory_clearance |
+  | "Share Repurchase **Authorization**" | unknown | buyback_authorisation |
+  | "**Raises Full-Year 2026 Revenue** Guidance" | unknown | guidance_raise |
+  | "Definitive Agreement **to be Acquired by**" | commercial_contract | takeover_offer |
+  | "**Debt Repayment** Plan" | unknown | debt_repayment |
+
+  Each was a small pattern bug with the same shape: `\btender offer\b` cannot
+  match the plural, `repaid?` never matches "repayment", and a fixed
+  alternation could not step over "2026 Revenue". The takeover case was the
+  worst, being a misclassification rather than a miss — it selects the wrong
+  materiality model and the wrong half-life. Recall on the measured set is now
+  14/14, with the noise still rejected.
+
+- **A wire returning zero releases was reported as healthy.** Business Wire
+  answered, parsed and returned nothing while the other two returned 20 each;
+  the check summed across wires, saw 40, and passed. Emptiness is now judged
+  per feed.
+
+### Changed
+
+- **Business Wire dropped from the defaults.** None of its published addresses
+  work: the tokenised feed answers and returns nothing, and both portal URLs
+  are HTML pages that time out. Two working wires beat three where one is
+  silently contributing zero. It stays in the probe's candidate list.
+
+- **GlobeNewswire switched to the United States feed.** The "News about Public
+  Companies" feed is global — the sample came back ABB, BNP Paribas and a
+  French-language duplicate of the ABB release. 2 of 20 carried a US ticker and
+  fetching the pages rescued none, because most of those issuers are not
+  US-listed at all.
+
+- **The ticker-tag check now measures instead of asserting.** It reported the
+  summary-only rate and claimed the body fetch would find the rest — a guess
+  about the number that decides whether this system ever sees a catalyst. It
+  now fetches a sample of release pages and reports what actually happens.
+
+### Added
+
+- `python -m app.probe_feed --candidates` tests every known address for every
+  wire and ranks them. Feed addresses rot, and the machine that can check is
+  never the machine the code was written on.
+- `WIRE_USER_AGENT`. PR Newswire served 20 items and then 404'd the same URL
+  minutes later, which is bot filtering rather than a bad address; a wire that
+  rejects our agent blocks the whole news stream, and that fix must not need a
+  code change.
+- `/info` — every route, what it answers, and when to reach for it. Two thirds
+  of this system was reachable only by typing a URL you had to already know.
+
+### Known limits
+
+- **Roughly 85% of wire traffic is not a catalyst**: securities-litigation
+  advertising, private-company PR, content marketing. The screen rejects it
+  before the LLM stage, so it costs storage and CPU but no money — and it is
+  all visible on `/news` rather than hidden.
+- **"Carries a ticker" is necessary, never sufficient.** The highest-scoring
+  feed on that metric (PR Newswire financial-services, 40%) is the worst of the
+  set: the matches are law-firm ads, which name a ticker perfectly and are not
+  news about the company.
+- A CEO departure does not classify. There is no event type for it, and this
+  system hunts upside catalysts, so leaving it unclassified is the conservative
+  outcome rather than a gap to close.
+
 ## [0.3.6] — 2026-08-30
 
 ### Added

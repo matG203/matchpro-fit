@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+import pytest
+
 from app.catalyst.amplification import (
     MarketStructure,
     assess_amplification,
@@ -643,3 +645,90 @@ def test_alert_bands_match_the_spec():
 def test_nine_five_requires_everything_simultaneously():
     almost = compute_catalyst_score(strong_catalyst(negative_offset_severity=3.5))
     assert almost.upside_catalyst_score < 9.5
+
+
+# ── classifier recall on real wire headlines ─────────────────────────────────
+#
+# Measured against live GlobeNewswire and PR Newswire output, which is written
+# nothing like the phrasings these patterns were first drafted from. Recall on
+# this set was 60%, with one takeover misread as a commercial contract — worse
+# than a miss, because it selects the wrong materiality model and half-life.
+
+REAL_WIRE_HEADLINES = [
+    # (headline, expected event type)
+    ("ONEOK Announces Cash Tender Offers in Connection with $5 Billion Debt "
+     "Repayment Plan", "tender_offer"),
+    ("Northvale Receives FDA Clearance for Its Next-Generation Device",
+     "regulatory_clearance"),
+    ("Orion Announces $500 Million Share Repurchase Authorization",
+     "buyback_authorisation"),
+    ("Acme Raises Full-Year 2026 Revenue Guidance", "guidance_raise"),
+    ("Beta Lowers Full-Year 2026 Guidance", "guidance_cut"),
+    ("Apex Announces Definitive Agreement to be Acquired by Blackstone",
+     "takeover_offer"),
+    ("Delta Announces Commencement of Exchange Offer for Outstanding Notes",
+     "tender_offer"),
+    # These already worked; they are here so a future loosening cannot break
+    # them silently.
+    ("Acme Therapeutics Announces FDA Approval of ACM-101", "fda_approval"),
+    ("Kestrel Reports Positive Topline Results from Phase 3 SUMMIT Trial",
+     "phase_3_result"),
+    ("Halden Systems Awarded $240 Million U.S. Navy Contract",
+     "government_contract"),
+    ("Biocorp Receives Complete Response Letter from FDA for BIO-22", "fda_crl"),
+    ("Zeta Announces Agreement to Acquire Delta Corp for $2.1 Billion",
+     "takeover_offer"),
+]
+
+
+@pytest.mark.parametrize("headline,expected", REAL_WIRE_HEADLINES)
+def test_real_wire_headlines_classify_correctly(headline, expected):
+    from app.catalyst.classify import classify_event
+
+    assert classify_event(headline, "").event_type.value == expected
+
+
+# Loosening a pattern to gain recall can quietly cost precision. These are the
+# things the wires are full of, and none of them is a catalyst.
+NOT_CATALYSTS = [
+    # Securities-litigation advertising. It names a ticker perfectly — which is
+    # why "carries a ticker" is a necessary condition and never a sufficient
+    # one — and is an ad, not news about the company.
+    "ROSEN, A LONGSTANDING LAW FIRM, Encourages The Simply Good Foods Company "
+    "Investors to Secure Counsel",
+    "Kessler Topaz Meltzer & Check, LLP - INVESTOR DEADLINE ALERT: Capricor "
+    "Therapeutics, Inc.",
+    "INVESTOR NOTICE: AEVEX Corp. (AVEX) Investors with Substantial Losses",
+    # Private-company PR and content marketing.
+    "VB Health Advances Supplement Transparency by Publishing Certificate of Analysis",
+    "In HelloNation, Tax Expert Sal Julian Details Which Itemized Deductions Apply",
+    # A financing round is not a guidance raise, despite "raises".
+    "Acme Raises $500 Million in Series C Financing",
+]
+
+
+@pytest.mark.parametrize("headline", NOT_CATALYSTS)
+def test_wire_noise_stays_unclassified(headline):
+    from app.catalyst.classify import classify_event
+
+    assert classify_event(headline, "").event_type.value == "unknown"
+
+
+def test_wire_noise_is_rejected_before_it_can_cost_an_llm_call():
+    """The screen is what keeps a firehose affordable.
+
+    Roughly 85% of what these feeds carry is not a catalyst. If any of it
+    reached the deep-analysis stage it would be billable, every sweep, forever.
+    """
+    from app.catalyst.classify import classify_event, screen
+    from app.catalyst.enums import SourceTier
+
+    for headline in NOT_CATALYSTS:
+        result = screen(
+            classification=classify_event(headline, ""),
+            entity_confidence=0.98,          # the ads resolve perfectly
+            source_tier=SourceTier.PRIMARY,
+            is_restatement=False,
+            min_entity_confidence=0.7)
+        assert not result.passed, headline
+        assert not result.deep_analysis_warranted, headline

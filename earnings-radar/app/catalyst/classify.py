@@ -37,7 +37,12 @@ _EVENT_PATTERNS: list[tuple[EventType, tuple[str, ...]]] = [
     # ── M&A ──
     (EventType.TAKEOVER_OFFER, (
         r"\bto (?:be )?acquir\w+ .{0,40}\bfor \$", r"\bbuyout offer\b", r"\btakeover (?:bid|offer)\b",
-        r"\bproposal to acquire\b", r"\bagreed to be acquired\b")),
+        r"\bproposal to acquire\b", r"\bagreed to be acquired\b",
+        # "Definitive Agreement to be Acquired by X" carries no "for $", so it
+        # used to fall through to COMMERCIAL_CONTRACT on "definitive agreement".
+        # A takeover read as a contract gets the wrong materiality model and
+        # the wrong half-life — worse than not classifying it at all.
+        r"\bto be acquired by\b", r"\bagreement to be acquired\b")),
     (EventType.DEAL_APPROVAL, (
         r"\bantitrust clearance\b", r"\bhsr (?:waiting period )?(?:expired|clearance)\b",
         r"\bregulatory approval (?:for|of) the (?:merger|acquisition)\b",
@@ -45,7 +50,10 @@ _EVENT_PATTERNS: list[tuple[EventType, tuple[str, ...]]] = [
     (EventType.DEAL_TERMINATION, (r"\bterminat\w+ (?:the )?(?:merger|acquisition|agreement)\b",)),
     (EventType.MERGER_ANNOUNCEMENT, (r"\bmerger agreement\b", r"\bmerger of equals\b")),
     (EventType.ACQUISITION, (r"\bacquisition of\b", r"\bacquires?\b", r"\bto purchase\b")),
-    (EventType.TENDER_OFFER, (r"\btender offer\b",)),
+    # Plural matters: "Cash Tender Offers" is the standard headline form, and
+    # the \b after "offer" cannot match before the "s".
+    (EventType.TENDER_OFFER, (r"\btender offers?\b", r"\bexchange offers?\b",
+                              r"\bcommencement of .{0,30}offers?\b")),
     (EventType.STRATEGIC_REVIEW, (
         r"\bstrategic (?:review|alternatives)\b", r"\bexploring (?:a )?sale\b")),
     (EventType.ASSET_DISPOSAL, (r"\bdivest\w*\b", r"\bsale of (?:its|the) .{0,30}(?:business|division)\b")),
@@ -67,10 +75,15 @@ _EVENT_PATTERNS: list[tuple[EventType, tuple[str, ...]]] = [
 
     # ── Guidance ──
     (EventType.GUIDANCE_RAISE, (
-        r"\brais\w+ (?:its |full-?year |fy\d* )?(?:guidance|outlook|forecast)\b",
+        # "Raises Full-Year 2026 Revenue Guidance" — the fixed alternation could
+        # not step over "2026 Revenue". The target nouns are specific enough
+        # that a gap is safe.
+        r"\brais\w+\b.{0,40}\b(?:guidance|outlook|forecast)\b",
         r"\bincreases? (?:its )?(?:guidance|outlook)\b", r"\bupgrades? (?:its )?outlook\b")),
     (EventType.GUIDANCE_CUT, (
-        r"\b(?:lower|cut|reduc)\w* (?:its )?(?:guidance|outlook|forecast)\b",)),
+        # Same gap as GUIDANCE_RAISE: "Lowers Full-Year Guidance" has words
+        # between the verb and the noun.
+        r"\b(?:lower|cut|reduc)\w*\b.{0,40}\b(?:guidance|outlook|forecast)\b",)),
     (EventType.PROFIT_WARNING, (r"\bprofit warning\b", r"\bwarns? on (?:profit|earnings)\b")),
     (EventType.BACKLOG_UPDATE, (r"\bbacklog\b",)),
 
@@ -80,10 +93,17 @@ _EVENT_PATTERNS: list[tuple[EventType, tuple[str, ...]]] = [
         r"\bexecuted .{0,30}(?:buyback|repurchase)\b")),
     (EventType.BUYBACK_AUTHORISATION, (
         r"\b(?:authoriz|approv)\w+ .{0,40}(?:share )?(?:repurchase|buyback)\b",
-        r"\bbuyback program\b", r"\brepurchase program\b")),
+        r"\bbuyback program\b", r"\brepurchase program\b",
+        # "Share Repurchase Authorization" — the noun order is the reverse of
+        # the verb pattern above, and it is the commoner headline form.
+        r"\b(?:share )?repurchase authoriz\w+\b", r"\bbuyback authoriz\w+\b")),
     (EventType.SPECIAL_DIVIDEND, (r"\bspecial dividend\b",)),
     (EventType.REFINANCING, (r"\brefinanc\w+\b",)),
-    (EventType.DEBT_REPAYMENT, (r"\brepaid?\b.{0,20}\bdebt\b", r"\bdebt reduction\b")),
+    # "repaid?" matches "repaid", never "repayment" — and "Debt Repayment Plan"
+    # is how the headline is actually written.
+    (EventType.DEBT_REPAYMENT, (
+        r"\brepaid?\b.{0,20}\bdebt\b", r"\bdebt reduction\b",
+        r"\bdebt repayment\b", r"\brepayment of .{0,25}\b(?:debt|notes)\b")),
 
     # ── Financing (dilutive — usually NOT a positive catalyst) ──
     (EventType.EQUITY_OFFERING, (
@@ -105,7 +125,11 @@ _EVENT_PATTERNS: list[tuple[EventType, tuple[str, ...]]] = [
     (EventType.INVESTIGATION_OPENED, (r"\b(?:sec|doj|ftc) investigation\b", r"\bsubpoena\b")),
 
     # ── Regulatory / government ──
-    (EventType.REGULATORY_CLEARANCE, (r"\bregulatory (?:clearance|approval)\b", r"\bce mark\b")),
+    # Device approvals never say "regulatory clearance" — they say FDA
+    # clearance, or name the pathway.
+    (EventType.REGULATORY_CLEARANCE, (
+        r"\bregulatory (?:clearance|approval)\b", r"\bce mark\b",
+        r"\bfda clearance\b", r"\bclearance from the fda\b", r"\b510\(k\)\b")),
     (EventType.PERMIT_LICENCE, (r"\b(?:permit|licen[cs]e) (?:granted|awarded|approved)\b",)),
     (EventType.GOVERNMENT_FUNDING, (r"\bgovernment funding\b", r"\bfederal funding\b")),
     (EventType.GRANT, (r"\bawarded a .{0,20}grant\b", r"\bgrant funding\b")),
