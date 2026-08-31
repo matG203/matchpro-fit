@@ -424,14 +424,19 @@ def _check_wires(report: PreflightReport, settings: Settings, wires,
     detail = ", ".join(f"{h.source}: {h.items_seen} releases" for h in live)
     if total == 0:
         report.add("Newswires — free feeds", FAIL,
-                   f"reachable but empty over 24 hours ({detail})",
+                   f"reachable, but not one release between them ({detail})",
                    "An empty firehose means the feed shape changed. Nothing "
                    "will be detected from news until this is fixed")
         return
 
     newest = max((h.newest_item_at for h in live if h.newest_item_at), default=None)
     age = f", newest {(now - newest).total_seconds() / 60:.0f} min old" if newest else ""
-    report.add("Newswires — free feeds", OK, f"{total} releases in 24h ({detail}){age}")
+    # "in 24h" would be wrong: each feed returns only its latest N items, so
+    # this is the depth available right now, not the day's volume. With a
+    # 30-second sweep the actual throughput is far higher, and saying otherwise
+    # would make a healthy system look like a trickle.
+    report.add("Newswires — free feeds", OK,
+               f"{total} releases available now ({detail}){age}")
 
     # Parsing a feed is not the same as being able to use it. Entity resolution
     # needs an exchange-qualified ticker, and if the wires stopped including

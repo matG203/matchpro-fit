@@ -175,7 +175,7 @@ filling in your own values:
 ANTHROPIC_API_KEY=sk-ant-...
 POLYGON_API_KEY=...
 FMP_API_KEY=...
-SEC_USER_AGENT=Earnings Radar (your-email@example.com)
+SEC_USER_AGENT=Earnings Radar (PUT-YOUR-REAL-EMAIL-HERE)
 NTFY_TOPIC=your-long-random-topic-name
 
 MARKET_DATA_DELAY_SECONDS=900
@@ -192,8 +192,11 @@ Notes on those:
   where to deliver traffic. If the two differ, the app runs perfectly and the
   address never loads, with nothing in the logs to suggest why.
 
-- **`SEC_USER_AGENT` must contain your real email.** SEC blocks anonymous
-  automation, and detection stops dead without it.
+- **`SEC_USER_AGENT` must contain your real email — do not paste the line
+  above unchanged.** SEC blocks anonymous automation with a 403, so filing
+  detection stops dead. Preflight fails loudly on the placeholder, because
+  pasting an example verbatim is the obvious thing to do and the resulting
+  silence looks exactly like a quiet filing day.
 - **`MARKET_DATA_DELAY_SECONDS=900`** is your Polygon Starter plan's 15-minute
   delay. If you ever upgrade to Advanced, change this one number to `0` — that
   is the whole upgrade.

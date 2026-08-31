@@ -327,7 +327,7 @@ def test_a_reachable_but_empty_firehose_blocks():
     entry = check(report, "Newswires — free feeds")
 
     assert entry.status == FAIL
-    assert "empty over 24 hours" in entry.detail
+    assert "not one release between them" in entry.detail
     assert report.ready is False
 
 
