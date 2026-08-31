@@ -187,3 +187,97 @@ def test_atom_feed_is_parsed():
 def test_malformed_feed_raises_provider_error():
     with pytest.raises(ProviderError):
         parse_feed("<not xml", "X", ReleaseSourceKind.OTHER)
+
+
+# ── SEC timeouts ─────────────────────────────────────────────────────────────
+#
+# A live Railway deployment failed preflight with "The read operation timed
+# out" on the latest-filings feed — a call that takes a couple of seconds from
+# a home connection. EDGAR builds that feed per request and its latency varies
+# wildly, so a slow response is normal rather than a fault.
+#
+# This matters more than a slow page: a timed-out sweep finds no filings, which
+# is indistinguishable from an hour in which nobody filed.
+
+
+def _sec_with(responses):
+    """SecEdgarProvider whose transport plays back `responses` in order.
+
+    Each entry is either an exception to raise or a body to return.
+    """
+    import httpx
+
+    from app.providers.sec_edgar import SecEdgarProvider
+
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        item = responses[min(calls["n"], len(responses) - 1)]
+        calls["n"] += 1
+        if isinstance(item, Exception):
+            raise item
+        return httpx.Response(200, text=item)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = SecEdgarProvider(client=client)
+    provider._timeout_retries = 2
+    return provider, calls
+
+
+FEED_OK = """<?xml version="1.0"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <title>8-K - ACME CORP (0000012345) (Filer)</title>
+    <link rel="alternate" href="https://www.sec.gov/x-index.htm"/>
+    <updated>2026-08-27T10:20:31-04:00</updated>
+  </entry>
+</feed>"""
+
+
+def test_a_transient_sec_timeout_is_retried(monkeypatch):
+    import httpx
+
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+    provider, calls = _sec_with([httpx.ReadTimeout("timed out"), FEED_OK])
+
+    entries = provider.latest_filings(count=10)
+
+    assert len(entries) == 1
+    assert calls["n"] == 2, "should have retried exactly once before succeeding"
+
+
+def test_repeated_timeouts_still_fail_rather_than_reporting_no_filings(monkeypatch):
+    """The wrong answer here is an empty list — that reads as 'nobody filed'."""
+    import httpx
+
+    from app.providers.base import ProviderError
+
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+    provider, calls = _sec_with([httpx.ReadTimeout("timed out")])
+
+    with pytest.raises(ProviderError) as caught:
+        provider.latest_filings(count=10)
+
+    assert "timed out" in str(caught.value)
+    assert calls["n"] == 3, "one initial attempt plus two retries"
+
+
+def test_a_403_is_not_retried():
+    """Only timeouts are worth retrying. A 403 means the user agent is wrong,
+    and hammering SEC over it is exactly what their guidance forbids."""
+    import httpx
+
+    from app.providers.base import ProviderError
+    from app.providers.sec_edgar import SecEdgarProvider
+
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(403, text="Forbidden")
+
+    provider = SecEdgarProvider(client=httpx.Client(transport=httpx.MockTransport(handler)))
+    with pytest.raises(ProviderError):
+        provider.latest_filings(count=10)
+
+    assert calls["n"] == 1

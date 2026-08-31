@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     # settings change rather than a code change.
     polygon_base_url: str = "https://api.polygon.io"
     sec_user_agent: str = "Earnings Radar (contact@example.com)"
+    # EDGAR builds the latest-filings feed per request and its latency varies
+    # wildly. A live Railway deployment timed out at 15s on a call that takes
+    # a couple of seconds from a home connection, and a timed-out sweep finds
+    # no filings — indistinguishable from an hour in which nobody filed.
+    sec_timeout_seconds: float = 30.0
+    sec_timeout_retries: int = 2
 
     # Notifications
     ntfy_topic: str = ""

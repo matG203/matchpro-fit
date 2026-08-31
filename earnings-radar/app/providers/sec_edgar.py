@@ -6,7 +6,9 @@ ticker→CIK map, tiny JSON index polls instead of page scraping.
 """
 from __future__ import annotations
 
+import logging
 import re
+import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -15,6 +17,8 @@ import httpx
 
 from app.config import get_settings
 from app.providers.base import FilingHit, FilingProvider, ProviderError, RateLimiter, TTLCache
+
+logger = logging.getLogger("earnings_radar.providers.sec")
 
 TICKER_MAP_URL = "https://www.sec.gov/files/company_tickers.json"
 CURRENT_FEED_URL = "https://www.sec.gov/cgi-bin/browse-edgar"
@@ -50,12 +54,45 @@ class SecEdgarProvider(FilingProvider):
         settings = get_settings()
         self._client = client or httpx.Client(
             headers={"User-Agent": settings.sec_user_agent, "Accept-Encoding": "gzip"},
-            timeout=15.0,
+            # EDGAR's latest-filings endpoint is generated per request and is
+            # routinely slow — slower still from a datacentre, where a live
+            # deployment timed out at 15s on a call that takes a couple of
+            # seconds from a home connection.
+            timeout=settings.sec_timeout_seconds,
             follow_redirects=True,
         )
+        self._timeout_retries = settings.sec_timeout_retries
         self._limiter = RateLimiter(rate_per_second=4.0, burst=4)
         self._cik_cache = TTLCache(ttl_seconds=86400, max_items=2)
         self._submissions_cache = TTLCache(ttl_seconds=10, max_items=512)
+
+    def _get_with_timeout_retry(self, url: str, **kwargs) -> httpx.Response:
+        """GET, retrying only on a timeout.
+
+        A timeout is the one failure worth retrying here: EDGAR builds the
+        latest-filings feed per request and its latency varies wildly, so a
+        slow response is normal rather than a sign anything is wrong. Every
+        other error — 403, 404, a changed format — means retrying would just
+        fail again more slowly, so those are raised immediately.
+
+        This matters more than it sounds: a timed-out sweep finds no filings,
+        which is indistinguishable from an hour in which nobody filed.
+        """
+        last: httpx.HTTPError | None = None
+        for attempt in range(self._timeout_retries + 1):
+            self._limiter.acquire()
+            try:
+                resp = self._client.get(url, **kwargs)
+                resp.raise_for_status()
+                return resp
+            except (httpx.TimeoutException, httpx.ReadError, httpx.ConnectError) as exc:
+                last = exc
+                if attempt < self._timeout_retries:
+                    logger.info("SEC request timed out (attempt %d/%d), retrying: %s",
+                                attempt + 1, self._timeout_retries + 1, exc)
+                    time.sleep(1.5 * (attempt + 1))
+        assert last is not None
+        raise last
 
     # ── CIK mapping ───────────────────────────────────────────────────────────
 
@@ -123,10 +160,8 @@ class SecEdgarProvider(FilingProvider):
                   "count": str(min(max(count, 10), 100)), "output": "atom"}
         if form_type:
             params["type"] = form_type
-        self._limiter.acquire()
         try:
-            resp = self._client.get(CURRENT_FEED_URL, params=params)
-            resp.raise_for_status()
+            resp = self._get_with_timeout_retry(CURRENT_FEED_URL, params=params)
         except httpx.HTTPError as exc:
             raise ProviderError(f"SEC latest-filings feed failed: {exc}") from exc
 
