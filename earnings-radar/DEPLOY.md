@@ -182,9 +182,15 @@ MARKET_DATA_DELAY_SECONDS=900
 WIRE_FEEDS_ENABLED=true
 CATALYST_SENTINEL_ENABLED=true
 LOCAL_TZ=Europe/London
+PORT=8080
 ```
 
 Notes on those:
+
+- **`PORT` must match the port you give Railway in Step 5.** The app listens on
+  whatever `PORT` says; the number in Railway's networking box tells its proxy
+  where to deliver traffic. If the two differ, the app runs perfectly and the
+  address never loads, with nothing in the logs to suggest why.
 
 - **`SEC_USER_AGENT` must contain your real email.** SEC blocks anonymous
   automation, and detection stops dead without it.
@@ -199,35 +205,106 @@ Railway redeploys automatically when you save.
 
 ---
 
-## Step 5 — Check it is actually working
+## Step 5 — Give it a web address
 
-Click **Settings** → **Networking** → **Generate Domain**. You get a URL like
-`earnings-radar-production.up.railway.app`.
+Railway runs your app but does not put it on the internet until you ask.
 
-Open these, in order:
+1. Click your **app service** (not the database) → **Settings** → **Networking**.
+2. Under **Public Networking**, click **Generate Domain**.
+3. If it asks "Enter the port your app is listening on", type **8080**.
+4. Click **Generate Domain**.
+5. Go to the **Variables** tab and add one more line: `PORT=8080`
 
-| Open this | What it should say |
-|---|---|
-| `/api/health` | `"scheduler_running": true`, `"database": "ok"` |
-| `/api/preflight` | every line `ok` — this makes one real call per provider |
-| `/news` | the wires green, and a count of releases read |
-| `/catalysts` | probably empty at first, and that is correct |
+**Step 5 is the one that catches people.** That box tells Railway's proxy
+which port to *deliver* traffic to. The app listens on whatever the `PORT`
+variable says. If those two numbers differ, the app runs perfectly, the logs
+look clean, and the web address simply never loads. Setting `PORT=8080`
+yourself pins both sides to the same number.
 
-**`/api/preflight` is the one that matters.** It fetches a Polygon quote, the
-SEC feed and all three newswires for real, and tells you which of them actually
-answered. A wrong key looks exactly like a quiet market otherwise.
+You will now have an address like:
 
-`/news` is where you watch the system read news. It shows every release that
-came in, whether it matched a company, why it was discarded if it was, and for
-anything that alerted, how long after the wire published it we sent it.
+    https://earnings-radar-production.up.railway.app
+
+Railway redeploys when you save the variable. Wait for the deployment to go
+green before the next step.
 
 ---
 
-## Step 6 — Turn the laptop off
+## Step 6 — Check it actually works
 
-That is it. `start.bat` is no longer needed. You can keep using it locally for
-testing, but do not run both at once against the same ntfy topic or you will
-get every alert twice.
+Open each of these in your browser, in this order, by pasting your address and
+adding the path on the end. So if your address is
+`https://earnings-radar-production.up.railway.app`, the first one is
+`https://earnings-radar-production.up.railway.app/api/health`.
+
+**1. `/api/health`** — is it alive?
+
+You want to see, somewhere in the wall of text:
+
+    "database": "ok"
+    "scheduler_running": true
+
+`scheduler_running: true` means the background jobs are ticking: earnings
+discovery, the 30-second catalyst sweep, everything. If this page does not
+load at all, the port numbers do not match — go back to Step 5.
+
+**2. `/api/preflight`** — do the API keys actually work?
+
+**This is the most important page.** It makes one real call to each provider
+and reports what came back. Look for `"ready": true` at the top.
+
+Every provider in this system fails quietly on purpose — a broken key lowers a
+score rather than crashing at 9pm on results night. The cost is that a wrong
+key looks exactly like a quiet market. This page is the only thing that tells
+the difference. Check it now, and check it again any time the system goes
+suspiciously silent.
+
+Two lines here are expected and fine:
+
+- **FMP — free float: WARN.** Your plan does not return that figure. Handled.
+- **Feed delay: SKIP** if the US market is closed. A stale price at 3am says
+  nothing about your feed's lag. Come back during US market hours (14:30–21:00
+  UK time) and it becomes a real OK or FAIL — that is the check confirming
+  `MARKET_DATA_DELAY_SECONDS=900` matches your actual Polygon plan.
+
+**3. `/news`** — is it reading the news?
+
+Three sections. The top one is the point: a row per newswire with a coloured
+dot.
+
+- 🟢 green = working
+- ⚪ white = has not been polled yet (wait 30 seconds and refresh)
+- 🔴 red = broken, and the reason is on the right
+
+Below that, a count of releases read in the last 24 hours and what happened to
+each one. Most will say "no company identified" — that is correct, not a
+fault. The wires carry a great deal of law-firm advertising and marketing
+alongside the real news.
+
+**4. `/info`** — everything else
+
+A list of every page and what it is for. Start here whenever you are wondering
+what you can look at.
+
+**5. `/catalysts`** — will probably be empty, and that is right
+
+9+ is designed to be rare. An empty page on day one means the system is being
+appropriately fussy, not that it is broken. `/news` is where you confirm it is
+actually working.
+
+---
+
+## Step 7 — Stop the copy on your laptop
+
+Your laptop and Railway would both be running the whole system, both sending
+alerts to the same phone. You would get every alert twice, and each would
+re-detect the same news independently.
+
+So: **find the `start.bat` window and close it** (or press Ctrl-C in it).
+
+That is the end. Railway now does what your laptop was doing, without the
+laptop being on. You can still run `start.bat` locally for testing later —
+just never at the same time as Railway.
 
 ---
 
@@ -283,7 +360,7 @@ no arguments to test all three built-in wires. Once a URL passes, put it in
 |---|---|---|
 | Deploy crashes immediately, logs mention `sqlalchemy.dialects:postgres` | An old-style `postgres://` URL | Already handled in code — make sure you are on the latest commit |
 | `EPHEMERAL DATABASE` in the logs | No Postgres attached | Step 3 |
-| App builds but the URL never loads | Something is binding a fixed port | Do not override the start command; `app.entrypoint` reads Railway's `$PORT` |
+| App builds but the URL never loads | The port in Settings → Networking does not match the `PORT` variable | Set both to 8080. This is the commonest deploy failure and looks like nothing is wrong |
 | `/api/preflight` says SEC user agent is a placeholder | `SEC_USER_AGENT` still says `example.com` | Put your real email in it |
 | No alerts for days | Usually correct | Check `/news`: if the wires are green and releases are being read, the screen is simply not passing anything. 9+ is designed to be rare |
 | Every alert arrives twice | Two copies running | Stop `start.bat`, or check `numReplicas` is 1 |
