@@ -190,9 +190,24 @@ def _check_polygon(report: PreflightReport, settings: Settings, polygon,
     # 1. Snapshot — proves the key, and carries the timestamp we need.
     try:
         snap = polygon.snapshot(PROBE_TICKER)
-        report.add("Polygon — snapshot", OK,
-                   f"{PROBE_TICKER} at {snap.price} "
-                   f"(bid/ask {snap.bid}/{snap.ask})")
+        if snap.price is None:
+            # The request worked and carried no price. That is normal at the
+            # weekend — with no session there is no last trade and no daily
+            # aggregate to fall back on — but `price` is the field move
+            # amplification and reaction room actually run on, so reporting a
+            # clean OK would hide a degraded feed. During market hours this is
+            # a genuine problem, and the same wording would have said "ok".
+            report.add("Polygon — snapshot", WARN,
+                       f"{PROBE_TICKER} returned no price "
+                       f"(bid/ask {snap.bid}/{snap.ask})",
+                       "Expected outside market hours. If you see this during "
+                       "US market hours (14:30-21:00 UK), the plan is not "
+                       "serving quotes and catalysts will score without a "
+                       "current price")
+        else:
+            report.add("Polygon — snapshot", OK,
+                       f"{PROBE_TICKER} at {snap.price} "
+                       f"(bid/ask {snap.bid}/{snap.ask})")
     except ProviderUnavailable as exc:
         report.add("Polygon — snapshot", FAIL, str(exc),
                    "Check the key is correct and the plan includes US stocks")

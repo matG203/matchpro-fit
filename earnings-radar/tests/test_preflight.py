@@ -622,3 +622,26 @@ def test_a_wrong_setting_is_still_caught_without_a_trade_stamp():
 def test_the_check_skips_only_when_there_is_nothing_at_all_to_date_it():
     report = run(polygon=NoTradeStampPolygon(bars=0))
     assert status_of(report, "Feed delay") == SKIP
+
+
+def test_a_snapshot_with_no_price_is_not_reported_as_healthy():
+    """A live weekend run showed 'AAPL at None' under a green OK.
+
+    The request succeeded and carried no price — normal with no session behind
+    it, but `price` is the field move amplification and reaction room actually
+    run on. The same wording would have said "ok" during market hours, where it
+    would mean the plan had stopped serving quotes.
+    """
+    class NoPrice(FakePolygon):
+        def snapshot(self, ticker):
+            return Snapshot(ticker=ticker, price=None, bid=None, ask=None,
+                            last_trade_at=NOW - timedelta(minutes=15))
+
+    report = run(polygon=NoPrice())
+    entry = check(report, "Polygon — snapshot")
+
+    assert entry.status == WARN
+    assert "no price" in entry.detail
+    assert "market hours" in entry.fix
+    # Still not blocking: at a weekend this is simply what the feed returns.
+    assert report.ready is True
